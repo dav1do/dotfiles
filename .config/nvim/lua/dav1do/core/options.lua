@@ -45,7 +45,7 @@ opt.splitbelow = true -- split horizontal window to the bottom
 -- opt.iskeyword.append('-')
 
 vim.opt.updatetime = 250
-vim.opt.colorcolumn = "80"
+vim.opt.colorcolumn = "100"
 
 -- clipboard -> still have <leader>y remap but not sure i like it
 opt.clipboard:append("unnamedplus") -- use system clipboard as default register

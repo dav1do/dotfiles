@@ -83,11 +83,19 @@ return {
                     "bash",
                     "lua",
                     "vim",
+                    "toml",
                     "dockerfile",
                     "gitignore",
                     "query",
                 },
+                ident = { enable = true },
+                rainbow = {
+                    enable = true,
+                    extended_mode = true,
+                    max_file_lines = nil,
+                },
                 highlight = { enable = true,
+                    additional_vim_regex_highlighting = false,
                     disable = function(lang, buf)
                         local max_filesize = 100 * 1024 -- 100 KB
                         local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))

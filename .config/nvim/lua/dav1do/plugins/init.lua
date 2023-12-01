@@ -1,6 +1,5 @@
 return {
-    "nvim-lua/plenary.nvim",                          -- lua functions that many plugins use
-
+    "nvim-lua/plenary.nvim",                            -- lua functions that many plugins use
     { "christoomey/vim-tmux-navigator", lazy = false }, -- tmux & split window navigation
     {
         "folke/trouble.nvim",
@@ -43,5 +42,38 @@ return {
 
     }, "tpope/vim-fugitive",
     "folke/zen-mode.nvim",
+    -- {
+    --     "anuvyklack/pretty-fold.nvim",
+    --     lazy = false,
+    --     config = function()
+    --         require("pretty-fold").setup()
+    --     end
+    -- },
+    -- {
+    --     'mrcjkb/rustaceanvim',
+    --     version = '^3', -- Recommended
+    --     ft = { 'rust' },
+    -- },
+    {
+        'saecki/crates.nvim',
+        tag = 'stable',
+        dependencies = { 'nvim-lua/plenary.nvim' },
+        config = function()
+            require('crates').setup()
+        end,
+    },
+    {
+        "rust-lang/rust.vim",
+        ft = "rust",
+        init = function()
+            vim.g.rustfmt_autosave = 1
+        end
+    },
+    {
+        "max397574/better-escape.nvim",
+        config = function()
+            require("better_escape").setup()
+        end,
+    },
     -- "github/copilot.vim",
 }
