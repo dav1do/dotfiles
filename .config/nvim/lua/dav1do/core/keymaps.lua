@@ -1,6 +1,8 @@
 -- set leader key to space
 vim.g.mapleader = " "
 
+vim.keymap.set("n", "<leader>pv", vim.cmd.Ex)
+
 -- General Keymaps -------------------
 
 -- use jk to exit insert mode
@@ -18,7 +20,9 @@ vim.keymap.set("n", "<leader>-", "<C-x>", { desc = "Decrement number" }) -- decr
 
 -- window management
 vim.keymap.set("n", "<leader>sv", "<C-w>v", { desc = "Split window vertically" })                   -- split window vertically
+vim.keymap.set("n", "<leader>sr", "<C-w>v", { desc = "Split window vertically" })                   -- split window vertically
 vim.keymap.set("n", "<leader>sh", "<C-w>s", { desc = "Split window horizontally" })                 -- split window horizontally
+vim.keymap.set("n", "<leader>sd", "<C-w>s", { desc = "Split window horizontally" })                 -- split window horizontally
 vim.keymap.set("n", "<leader>se", "<C-w>=", { desc = "Make splits equal size" })                    -- make split windows equal width & height
 vim.keymap.set("n", "<leader>sx", "<cmd>close<CR>", { desc = "Close current split" })               -- close current split window
 
@@ -29,9 +33,12 @@ vim.keymap.set("n", "<leader>tp", "<cmd>tabp<CR>", { desc = "Go to previous tab"
 vim.keymap.set("n", "<leader>tf", "<cmd>tabnew %<CR>", { desc = "Open current buffer in new tab" }) --  move current buffer to new tab
 
 vim.keymap.set("n", "<leader>bn", "<cmd>bnext<cr>", { desc = "Next buffer" })
+vim.keymap.set("n", "<leader>br", "<cmd>bnext<cr>", { desc = "Next buffer" })
 vim.keymap.set("n", "<leader>bp", "<cmd>bprevious<cr>", { desc = "Previous buffer" })
 vim.keymap.set("n", "<leader>bl", "<cmd>buffers<cr>", { desc = "List buffers" })
+vim.keymap.set("n", "<leader>bd", vim.cmd.bd, { desc = "Close buffer" })
 
+-- netrw.. which is off since i'm using tree
 vim.keymap.set("n", "<leader>pv", vim.cmd.Ex)
 
 -- allow moving hightlighted text up and down
@@ -62,6 +69,8 @@ vim.keymap.set("n", "Q", "<nop>")
 vim.keymap.set("n", "<C-f>", "<cmd>silent !tmux neww tmux-sessionizer<CR>")
 vim.keymap.set("n", "<leader>f", vim.lsp.buf.format)
 vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action)
+vim.keymap.set('n', '<leader>.', vim.lsp.buf.code_action)
+vim.keymap.set('n', '<F12>', vim.lsp.buf.references)
 
 -- quick fix navigation
 -- vim.keymap.set("n", "<C-k>", "<cmd>cnext<CR>zz")

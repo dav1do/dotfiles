@@ -6,9 +6,16 @@ return {
         "nvim-tree/nvim-web-devicons",
     },
     config = function()
+        -- make netrw look like it's enabled so we don't load with with Ex
         vim.g.loaded_netrw = 1
         vim.g.loaded_netrwPlugin = 1
         require("nvim-tree").setup({
+            filters = {
+                dotfiles = true,
+            },
+            git = {
+                ignore = false
+            },
             actions = {
                 open_file = {
                     window_picker = {
