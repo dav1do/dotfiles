@@ -11,11 +11,13 @@ return {
         vim.g.loaded_netrwPlugin = 1
         require("nvim-tree").setup({
             filters = {
-                dotfiles = true,
+                dotfiles = false,
+                git_ignored = false,
             },
             git = {
                 ignore = false
             },
+            update_focused_file = { enable = true, },
             actions = {
                 open_file = {
                     window_picker = {

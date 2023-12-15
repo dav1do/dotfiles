@@ -4,22 +4,24 @@ return {
     {
         "folke/trouble.nvim",
         config = function()
+            local opts = {} --{ silent = true, noremap = true }
             require("trouble").setup {
                 icons = false,
                 -- your configuration comes here
                 -- or leave it empty to use the default settings
                 -- refer to the configuration section below
-                vim.keymap.set("n", "<leader>qf", "<cmd>TroubleToggle quickfix<cr>",
-                    { silent = true, noremap = true }
-                )
+                vim.keymap.set("n", "<leader>tt", "<cmd>TroubleToggle<cr>", opts),
+                vim.keymap.set("n", "<leader>tw", "<cmd>TroubleToggle workspace_diagnostics<cr>", opts),
+                vim.keymap.set("n", "<leader>td", "<cmd>TroubleToggle document_diagnostics<cr>", opts),
+                vim.keymap.set("n", "<leader>tq", "<cmd>TroubleToggle quickfix<cr>", opts),
+                vim.keymap.set("n", "gR", "<cmd>TroubleToggle lsp_references<cr>", opts),
             }
         end
-    },
-    {
-        'numToStr/Comment.nvim',
-        opts = {},
-        lazy = false,
-    },
+    }, {
+    'numToStr/Comment.nvim',
+    opts = {},
+    lazy = false,
+},
     {
         "akinsho/bufferline.nvim",
         dependencies = "nvim-tree/nvim-web-devicons",
@@ -61,25 +63,9 @@ return {
     --     ft = { 'rust' },
     -- },
     {
-        'saecki/crates.nvim',
-        tag = 'stable',
-        dependencies = { 'nvim-lua/plenary.nvim' },
-        config = function()
-            require('crates').setup()
-        end,
-    },
-    {
-        "rust-lang/rust.vim",
-        ft = "rust",
-        init = function()
-            vim.g.rustfmt_autosave = 1
-        end
-    },
-    {
         "max397574/better-escape.nvim",
         config = function()
             require("better_escape").setup()
         end,
     },
-    -- "github/copilot.vim",
 }
