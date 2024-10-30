@@ -12,16 +12,16 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({ { import = "dav1do.plugins" } },
-{
-  install = {
-    missing = true,
-    colorscheme = { "nightfly" },
-  },
-  checker = {
-    enabled = true,
-    notify = false,
-  },
-  change_detection = {
-    notify = false,
-  },
-})
+  {
+    install = {
+      missing = true,
+
+    },
+    checker = {
+      enabled = true,
+      notify = false,
+    },
+    change_detection = {
+      notify = false,
+    },
+  })

@@ -13,12 +13,22 @@ export ZSH="$HOME/.oh-my-zsh"
 
 # n (node version manager)
 export N_PREFIX=$HOME/.n
-export PATH=$N_PREFIX/bin:$PATH
+export PATH=$N_PREFIX/bin:$(go env GOPATH)/bin:$PATH
+export PATH=$(brew --prefix)/opt/llvm/bin:$PATH
+export PATH="$HOME/bin:$PATH"
 
-# Set name of the theme to load --- if set to "random", it will
-# load a random theme each time oh-my-zsh is loaded, in which case,
-# to know which specific one was loaded, run: echo $RANDOM_THEME
-# See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
+# update RA for nvim to work (rustaceanvim/lsp config says don't use mason cause it's old, as is rustup version)
+function update_latest_rust_analyzer() {
+  # Find directories matching the rust-analyzer pattern, sort by version, and get the newest
+  latest_version=$(find ~/.vscode/extensions -name rust-analyzer | sort -V | tail -n 1)
+  if [[ ! -z $latest_version ]]; then
+    export PATH=$latest_version:$PATH
+    rm -f "$HOME/bin/rust-analyzer"
+    ln -s $latest_version "$HOME/bin/rust-analyzer"
+  fi
+}
+update_latest_rust_analyzer
+
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
 # Set list of themes to pick from when loading at random
@@ -87,6 +97,7 @@ source $ZSH/oh-my-zsh.sh
 
 # User configuration
 
+
 # export MANPATH="/usr/local/man:$MANPATH"
 
 # You may need to manually set your language environment
@@ -127,3 +138,19 @@ eval "$(zoxide init zsh)"
 eval `ssh-agent -s` > /dev/null
 ssh-add &> /dev/null
 
+[[ $commands[kubectl] ]] && source <(kubectl completion zsh)
+
+[ -f "/Users/david/.ghcup/env" ] && source "/Users/david/.ghcup/env" # ghcup-env
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/Users/david/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/david/google-cloud-sdk/path.zsh.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/Users/david/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/david/google-cloud-sdk/completion.zsh.inc'; fi
+
+source <(kubectl completion zsh)
+source <(cpk completion zsh)
