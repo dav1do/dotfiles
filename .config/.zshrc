@@ -17,17 +17,6 @@ export PATH=$N_PREFIX/bin:$(go env GOPATH)/bin:$PATH
 export PATH=$(brew --prefix)/opt/llvm/bin:$PATH
 export PATH="$HOME/bin:$PATH"
 
-# update RA for nvim to work (rustaceanvim/lsp config says don't use mason cause it's old, as is rustup version)
-function update_latest_rust_analyzer() {
-  # Find directories matching the rust-analyzer pattern, sort by version, and get the newest
-  latest_version=$(find ~/.vscode/extensions -name rust-analyzer | sort -V | tail -n 1)
-  if [[ ! -z $latest_version ]]; then
-    export PATH=$latest_version:$PATH
-    rm -f "$HOME/bin/rust-analyzer"
-    ln -s $latest_version "$HOME/bin/rust-analyzer"
-  fi
-}
-update_latest_rust_analyzer
 
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
@@ -125,6 +114,20 @@ source $ZSH/oh-my-zsh.sh
 if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
 fi
+
+# update RA for nvim to work (rustaceanvim/lsp config says don't use mason cause it's old, as is rustup version)
+function update_latest_rust_analyzer() {
+  # Find directories matching the rust-analyzer pattern, sort by version, and get the newest
+  latest_version=$(find ~/.vscode/extensions -name rust-analyzer | sort -V | tail -n 1)
+  if [[ -n $latest_version ]]; then
+    # only update if it's new
+    if [[ -z $(ls -l ~/bin | rg $latest_version) ]]; then
+      rm -f "$HOME/bin/rust-analyzer"
+      ln -s $latest_version "$HOME/bin/rust-analyzer"
+      fi
+  fi
+}
+update_latest_rust_analyzer
 
 # rust
 RUST_BACKTRACE=1
