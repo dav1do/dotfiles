@@ -7,7 +7,6 @@ fi
 
 # ignore ctrl+d
 set -o ignoreeof
-
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
 
@@ -16,7 +15,7 @@ export N_PREFIX=$HOME/.n
 export PATH=$N_PREFIX/bin:$(go env GOPATH)/bin:$PATH
 export PATH=$(brew --prefix)/opt/llvm/bin:$PATH
 export PATH="$HOME/bin:$PATH"
-
+export PATH="$HOME/bin/nvim/bin:$PATH" # in case nvim is installed from source
 
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
@@ -80,8 +79,10 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(aws history rust zsh-autosuggestions git docker docker-compose zsh-syntax-highlighting web-search)
+plugins=(aws history rust zsh-autosuggestions git docker docker-compose zsh-syntax-highlighting web-search ssh-agent)
 
+# zstyle :omz:plugins:ssh-agent agent-forwarding yes
+zstyle :omz:plugins:ssh-agent ssh-add-args --apple-load-keychain quiet yes
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
@@ -137,12 +138,6 @@ RUST_BACKTRACE=1
 
 eval "$(zoxide init zsh)"
 
-# start SSH for git
-eval `ssh-agent -s` > /dev/null
-ssh-add &> /dev/null
-
-[[ $commands[kubectl] ]] && source <(kubectl completion zsh)
-
 [ -f "/Users/david/.ghcup/env" ] && source "/Users/david/.ghcup/env" # ghcup-env
 
 export NVM_DIR="$HOME/.nvm"
@@ -155,5 +150,18 @@ if [ -f '/Users/david/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/david/goo
 # The next line enables shell command completion for gcloud.
 if [ -f '/Users/david/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/david/google-cloud-sdk/completion.zsh.inc'; fi
 
+[[ $commands[kubectl] ]] && source <(kubectl completion zsh)
+
 source <(kubectl completion zsh)
 source <(cpk completion zsh)
+export GPG_TTY=$(tty)
+
+export WASMTIME_HOME="$HOME/.wasmtime"
+
+export PATH="$WASMTIME_HOME/bin:$PATH"
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init - zsh)"
+
+# Added by Windsurf
+export PATH="/Users/david/.codeium/windsurf/bin:$PATH"

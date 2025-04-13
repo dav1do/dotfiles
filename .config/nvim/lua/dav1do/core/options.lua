@@ -22,6 +22,7 @@ opt.fillchars = { eob = " " }
 -- line wrapping
 opt.wrap = false     -- disable line wrapping
 opt.linebreak = true -- Wrap lines at convenient points
+opt.splitkeep = "screen" -- default "cursor", trying to play nice with bufferline 
 
 -- opt.shortmess:append({ W = true, I = true, c = true, C = true }) -- suppress some messages
 
@@ -73,10 +74,13 @@ opt.fillchars = {
   eob = " ",
 }
 opt.smoothscroll = true
+opt.foldmethod = "expr"
+opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
 -- opt.foldexpr = "v:lua.require'dav1do.util'.foldexpr()"
--- opt.foldlevel = 99
--- opt.foldmethod = "expr"
--- opt.foldtext = ""
+opt.foldlevel = 99
+opt.foldlevelstart = 3
+opt.foldtext = "" -- sytanx highlight first line
+
 opt.smartcase = true   -- Don't ignore case with capitals
 opt.smartindent = true -- Insert indents automatically
 opt.winminwidth = 5    -- Minimum window width

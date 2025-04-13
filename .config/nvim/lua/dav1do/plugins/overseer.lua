@@ -25,12 +25,45 @@ return {
     },
     opts = {
       dap = false,
+      templates = {
+        "cargo",
+        "just",
+        "make",
+        "npm",
+        "shell",
+        "tox",
+        -- "vscode", -- this always breaks in cargo since i setup custom things
+        "mage",
+        "mix",
+        "deno",
+        "rake",
+        "task",
+        "composer",
+        "cargo-make",
+      },
       task_list = {
+        direction = "right",
         bindings = {
           ["<C-h>"] = false,
           ["<C-j>"] = false,
           ["<C-k>"] = false,
           ["<C-l>"] = false,
+        },
+      },
+      task_launcher = {
+        -- Set keymap to false to remove default behavior
+        -- You can add custom keymaps here as well (anything vim.keymap.set accepts)
+        bindings = {
+          i = {
+            ["<C-s>"] = "Submit",
+            ["<C-c>"] = "Cancel",
+          },
+          n = {
+            ["<CR>"] = "Submit",
+            ["<C-s>"] = "Submit",
+            ["q"] = "Cancel",
+            ["?"] = "ShowHelp",
+          },
         },
       },
       form = {
@@ -100,4 +133,3 @@ return {
     end,
   },
 }
-

@@ -14,7 +14,8 @@ alias wsl_ssh_ip='arp -a | rg "2c:f0:5d:f0:42:ed"'
 # alias vim='nvim'
 
 # after upgrading alacritty, if it won't open, run: 
-alias auth_alacritty='spctl --add /Applications/Alacritty.app'
+alias alacritty_auth='xattr -rd com.apple.quarantine /Applications/Alacritty.app'
+alias install_nvim_nightly='make MAKE_BUILD_TYPE=RelWithDebInfo && make CMAKE_INSTALL_PREFIX=$HOME/bin/nvim install'
 
 # git, you git
 git_current_branch() {

@@ -41,6 +41,12 @@ vim.keymap.set({ "n", "x" }, "<Down>", "v:count == 0 ? 'gj' : 'j'", { desc = "Do
 vim.keymap.set({ "n", "x" }, "k", "v:count == 0 ? 'gk' : 'k'", { desc = "Up", expr = true, silent = true })
 vim.keymap.set({ "n", "x" }, "<Up>", "v:count == 0 ? 'gk' : 'k'", { desc = "Up", expr = true, silent = true })
 
+-- map up/down for faster movement
+vim.keymap.set({ "n", "v" }, "<Up>", "2k", { desc = "Up 2 lines" })
+vim.keymap.set({ "n", "v" }, "<Down>", "2j", { desc = "Down 2 lines" })
+vim.keymap.set({ "n", "v" }, "<Right>", "2l", { desc = "Right 2" })
+vim.keymap.set({ "n", "v" }, "<Left>", "2h", { desc = "Left 2" })
+
 -- Resize window (disabled mission control shortcuts for up/down because mac uses ctrl up to zoom to mgmt view or whatever)
 vim.keymap.set("n", "<C-Up>", "<cmd>resize +4<cr>", { desc = "Increase Window Height" })
 vim.keymap.set("n", "<C-Down>", "<cmd>resize -4<cr>", { desc = "Decrease Window Height" })
@@ -64,7 +70,7 @@ vim.keymap.set("n", "<S-l>", "<cmd>bnext<cr>", { desc = "Next Buffer" })
 vim.keymap.set("n", "<leader>bd", vim.cmd.bd, { desc = "Delete Buffer" })
 
 -- cursor mgmt
-vim.keymap.set("n", "J", "mzJ`z") -- don't move cursor when appending text to line
+vim.keymap.set("n", "J", "mzJz") -- don't move cursor when appending text to line
 -- keep cursor in the middle when jumping and searching
 -- vim.keymap.set("n", "<C-d>", "<C-d>zz")
 -- vim.keymap.set("n", "<C-u>", "<C-u>zz")

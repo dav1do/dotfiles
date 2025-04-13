@@ -30,7 +30,7 @@ return {
 
     telescope.setup({
       defaults = {
-        path_display = { "smart" }, --" truncate" ?
+        path_display = { shorten = 8 }, --" truncate" ?
         mappings = {
           i = {
             ["<esc>"] = actions.close,

@@ -10,23 +10,23 @@ return
   },
   {
     "Saecki/crates.nvim",
-    event = { "BufRead Cargo.toml" },
+    event = { "BufReadPost Cargo.toml", "BufNewFile Cargo.toml" },
     opts = {
       completion = {
         cmp = { enabled = true },
       },
     },
     keys = {
-      { "<leader>cv", function() require("crates").show_versions_popup() end,     desc = "Show crate [v]ersions" },
-      { "<leader>cf", function() require("crates").show_features_popup() end,     desc = "Show crate [f]eatures" },
-      { "<leader>cd", function() require("crates").show_dependencies_popup() end, desc = "Show crate [d]ependencies" },
-      { "<leader>cu", function() require("crates").update_crate() end,            desc = "[u]pdate create" },
-      { "<leader>cU", function() require("crates").upgrade_crate() end,           desc = "[U]pgrade crate" },
-      { "<leader>ca", function() require("crates").update_all_crates() end,       desc = "Update [a]ll crates" },
-      { "<leader>cA", function() require("crates").upgrade_all_crates() end,      desc = "Upgrade [A]ll crates" },
-      { "<leader>cH", function() require("crates").open_homepage() end,           desc = "Crate [H]omepage" },
-      { "<leader>cD", function() require("crates").open_documentation() end,      desc = "Crate [D]oc page" },
-      { "<leader>cR", function() require("crates").open_repository() end,         desc = "Crate [R]eposi:tory" },
+      { "<leader>cv",  function() require("crates").show_versions_popup() end,     desc = "Show crate [v]ersions" },
+      { "<leader>cf",  function() require("crates").show_features_popup() end,     desc = "Show crate [f]eatures" },
+      { "<leader>cd",  function() require("crates").show_dependencies_popup() end, desc = "Show crate [d]ependencies" },
+      { "<leader>cu",  function() require("crates").update_crate() end,            desc = "[u]pdate create" },
+      { "<leader>cU",  function() require("crates").upgrade_crate() end,           desc = "[U]pgrade crate" },
+      { "<leader>cua", function() require("crates").update_all_crates() end,       desc = "Update [a]ll crates" },
+      { "<leader>cuA", function() require("crates").upgrade_all_crates() end,      desc = "Upgrade [A]ll crates" },
+      { "<leader>cH",  function() require("crates").open_homepage() end,           desc = "Crate [H]omepage" },
+      { "<leader>cD",  function() require("crates").open_documentation() end,      desc = "Crate [D]oc page" },
+      { "<leader>cR",  function() require("crates").open_repository() end,         desc = "Crate [R]eposi:tory" },
     }
   },
   {
@@ -47,6 +47,7 @@ return
     lazy = false,
     keys = {
       { "<leader>cA",  function() vim.cmd.RustLsp("codeAction") end,        desc = "Rust Code [A]ction" },
+      { "<C-.>",       function() vim.cmd.RustLsp("codeAction") end,        desc = "Rust Code [A]ction" },
       { "<leader>crd", function() vim.cmd.RustLsp("debuggables") end,       desc = "Rust [D]ebuggables" },
       { "<leader>cre", function() vim.cmd.RustLsp("expandMacro") end,       desc = "[E]xpand Macro" },
       { "<leader>crr", function() vim.cmd.RustLsp("rebuildProcMacros") end, desc = "[R]ebuild proc macros" },
