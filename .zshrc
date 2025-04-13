@@ -156,12 +156,5 @@ source <(kubectl completion zsh)
 source <(cpk completion zsh)
 export GPG_TTY=$(tty)
 
-export WASMTIME_HOME="$HOME/.wasmtime"
-
-export PATH="$WASMTIME_HOME/bin:$PATH"
-export PYENV_ROOT="$HOME/.pyenv"
-[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init - zsh)"
-
 # Added by Windsurf
 export PATH="/Users/david/.codeium/windsurf/bin:$PATH"
