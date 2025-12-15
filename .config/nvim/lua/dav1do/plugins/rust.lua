@@ -43,7 +43,7 @@ return
   },
   {
     "mrcjkb/rustaceanvim",
-    version = "^5",
+    version = "^6",
     lazy = false,
     keys = {
       { "<leader>cA",  function() vim.cmd.RustLsp("codeAction") end,        desc = "Rust Code [A]ction" },
@@ -51,7 +51,7 @@ return
       { "<leader>crd", function() vim.cmd.RustLsp("debuggables") end,       desc = "Rust [D]ebuggables" },
       { "<leader>cre", function() vim.cmd.RustLsp("expandMacro") end,       desc = "[E]xpand Macro" },
       { "<leader>crr", function() vim.cmd.RustLsp("rebuildProcMacros") end, desc = "[R]ebuild proc macros" },
-      { "<leader>crs", function() vim.cmd.RustLsp("sytaxTree") end,         desc = "[S]yntax tree" },
+      { "<leader>crs", function() vim.cmd.RustLsp("syntaxTree") end,        desc = "[S]yntax tree" },
       { "<leader>crt", function() vim.cmd.RustLsp("openCargo") end,         desc = "Open Cargo.[t]oml" },
     },
     opts = {
@@ -69,9 +69,18 @@ return
               loadOutDirsFromCheck = true,
               buildScripts = {
                 enable = true,
-              },
+              }
             },
-            check = { command = "clippy" },
+            check = { command = "check" },
+            files = {
+              exclude = {
+                ".direnv",
+                ".devenv",
+                "target",
+                "node_modules",
+                "nix"
+              }
+            },
             testExplorer = true,
             inlayHints = {
               closureReturnTypeHints = { enable = "with_block" },

@@ -68,6 +68,7 @@ vim.keymap.set("v", "K", ":<C-u>execute \"'<,'>move '<-\" . (v:count1 + 1)<cr>gv
 vim.keymap.set("n", "<S-h>", "<cmd>bprevious<cr>", { desc = "Prev Buffer" })
 vim.keymap.set("n", "<S-l>", "<cmd>bnext<cr>", { desc = "Next Buffer" })
 vim.keymap.set("n", "<leader>bd", vim.cmd.bd, { desc = "Delete Buffer" })
+vim.keymap.set("n", "<leader>bb", "<cmd>close<CR>", { desc = "Close current split" })
 
 -- cursor mgmt
 vim.keymap.set("n", "J", "mzJz") -- don't move cursor when appending text to line
@@ -101,10 +102,11 @@ vim.keymap.set("n", "<leader>vpp", "<cmd>e ~/.config/nvim/lua/dav1do/init.lua<CR
 --   vim.cmd("so") --reload file
 -- end)
 
+vim.keymap.set("n", "<leader>q", "<cmd>close<CR>", { desc = "Close current split" }) -- close current split window
 vim.keymap.set("n", "<leader>w", function()
   vim.cmd("w")
 end, { desc = "write file" })
-vim.keymap.set("n", "<leader>q", function()
+vim.keymap.set("n", "<leader>qq", function()
   vim.cmd("q")
 end, { desc = "quit buffer" })
 

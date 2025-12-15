@@ -17,9 +17,9 @@ return {
     },
   },
   config = function(_, opts)
-    if (vim.g.colors_name or ""):find("catppuccin") then
-      opts.highlights = require("catppuccin.groups.integrations.bufferline").get()
-    end
+    -- if (vim.g.colors_name or ""):find("catppuccin") then
+    --   opts.highlights = require("catppuccin.groups.integrations.bufferline").get()
+   -- end
     require("bufferline").setup(opts)
     -- Fix bufferline when restoring a session
     vim.api.nvim_create_autocmd({ "BufAdd", "BufDelete" }, {

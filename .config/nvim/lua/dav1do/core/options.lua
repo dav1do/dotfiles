@@ -74,12 +74,12 @@ opt.fillchars = {
   eob = " ",
 }
 opt.smoothscroll = true
-opt.foldmethod = "expr"
-opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
--- opt.foldexpr = "v:lua.require'dav1do.util'.foldexpr()"
-opt.foldlevel = 99
-opt.foldlevelstart = 3
-opt.foldtext = "" -- sytanx highlight first line
+-- opt.foldmethod = "expr"
+-- opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+-- -- opt.foldexpr = "v:lua.require'dav1do.util'.foldexpr()"
+-- opt.foldlevel = 99
+-- opt.foldlevelstart = 3
+-- opt.foldtext = "" -- sytanx highlight first line
 
 opt.smartcase = true   -- Don't ignore case with capitals
 opt.smartindent = true -- Insert indents automatically

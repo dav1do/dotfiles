@@ -32,6 +32,7 @@ return {
         { "<leader>b",     desc = "+buffer" },
         { "<leader>c",     desc = "+code" },
         { "<leader>p",     desc = "+file/find" },
+        { "<leader>n",     desc = "+notices" },
         { "<leader>l",     desc = "+git" },
         { "<leader>gh",    desc = "+hunks" },
         { "<leader>q",     desc = "+quit/session" },
