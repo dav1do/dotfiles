@@ -7,8 +7,8 @@ return {
     "LazyGitFilter",
     "LazyGitFilterCurrentFile",
   },
-  lazy = false, --required with telescope
-  requires = {
+  lazy = true,
+  dependencies = {
     "nvim-telescope/telescope.nvim",
     "nvim-lua/plenary.nvim",
   },

@@ -87,6 +87,7 @@ return {
     { "<leader>pss", ":lua require('telescope').extensions.live_grep_args.live_grep_args()<CR>",       mode = { "n" } },
     { "<leader>ph",  "<CMD>Telescope help_tags<CR>",                                                   mode = { "n" } },
     { "<leader>pb",  "<CMD>Telescope buffers<CR>",                                                     mode = { "n" } },
+    { "<leader>bf",  "<CMD>Telescope buffers<CR>",                                                     mode = { "n" }, desc = "Find buffers" },
     { "<leader>pq",  "<cmd>Telescope quickfix<cr>",                                                    desc = "Quickfix List" },
   },
 }

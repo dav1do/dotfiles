@@ -18,7 +18,7 @@ return
     },
     keys = {
       { "<leader>cv",  function() require("crates").show_versions_popup() end,     desc = "Show crate [v]ersions" },
-      { "<leader>cf",  function() require("crates").show_features_popup() end,     desc = "Show crate [f]eatures" },
+      { "<leader>cF",  function() require("crates").show_features_popup() end,     desc = "Show crate [F]eatures" },
       { "<leader>cd",  function() require("crates").show_dependencies_popup() end, desc = "Show crate [d]ependencies" },
       { "<leader>cu",  function() require("crates").update_crate() end,            desc = "[u]pdate create" },
       { "<leader>cU",  function() require("crates").upgrade_crate() end,           desc = "[U]pgrade crate" },
@@ -26,7 +26,7 @@ return
       { "<leader>cuA", function() require("crates").upgrade_all_crates() end,      desc = "Upgrade [A]ll crates" },
       { "<leader>cH",  function() require("crates").open_homepage() end,           desc = "Crate [H]omepage" },
       { "<leader>cD",  function() require("crates").open_documentation() end,      desc = "Crate [D]oc page" },
-      { "<leader>cR",  function() require("crates").open_repository() end,         desc = "Crate [R]eposi:tory" },
+      { "<leader>cR",  function() require("crates").open_repository() end,         desc = "Crate [R]epository" },
     }
   },
   {
@@ -38,7 +38,7 @@ return
       { "<leader>crm", function() require("ferris.methods.view_mir")() end,           desc = "View [M]ir" },
       { "<leader>crh", function() require("ferris.methods.view_hir")() end,           desc = "View [H]ir" },
       { "<leader>cri", function() require("ferris.methods.view_item_tree")() end,     desc = "View [I]tem Tree" },
-      { "<leader>crs", function() require("ferris.methods.view_syntax_tree")() end,   desc = "View Item [S]yntax Tree" },
+      { "<leader>crS", function() require("ferris.methods.view_syntax_tree")() end,   desc = "View Item [S]yntax Tree (ferris)" },
     }
   },
   {
@@ -53,10 +53,24 @@ return
       { "<leader>crr", function() vim.cmd.RustLsp("rebuildProcMacros") end, desc = "[R]ebuild proc macros" },
       { "<leader>crs", function() vim.cmd.RustLsp("syntaxTree") end,        desc = "[S]yntax tree" },
       { "<leader>crt", function() vim.cmd.RustLsp("openCargo") end,         desc = "Open Cargo.[t]oml" },
+      {
+        "<leader>crC",
+        function()
+          local clients = vim.lsp.get_clients({ name = "rust_analyzer" })
+          if #clients == 0 then
+            vim.notify("rust-analyzer not attached", vim.log.levels.WARN)
+            return
+          end
+          local ra = clients[1].config.settings["rust-analyzer"]
+          ra.checkOnSave = not ra.checkOnSave
+          clients[1].notify("workspace/didChangeConfiguration", { settings = clients[1].config.settings })
+          vim.notify("rust-analyzer checkOnSave: " .. tostring(ra.checkOnSave))
+        end,
+        desc = "Toggle [C]heck on save",
+      },
     },
     opts = {
       server = {
-        capabilities = require('cmp_nvim_lsp').default_capabilities(),
         on_attach = function(_, bufnr)
           -- switched keymaps to keys object to get better which key support
           vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
@@ -95,7 +109,7 @@ return
             procMacro = {
               enable = true,
               ignored = {
-                ["async-trait"] = { "async_trait" },
+                -- ["async-trait"] = { "async_trait" },
                 ["napi-derive"] = { "napi" },
                 ["async-recursion"] = { "async_recursion" },
               },

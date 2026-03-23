@@ -1,7 +1,5 @@
 local opt = vim.opt
 
-opt.backspace = "indent,eol,start"
-
 -- vim.g.autoformat = true
 
 opt.grepprg = "rg --vimgrep"
@@ -17,23 +15,22 @@ opt.tabstop = 2        -- tab = N spaces
 opt.shiftround = true  -- Round indent
 opt.shiftwidth = 2     -- Size of an indent
 opt.expandtab = true   -- spaces over tabs
-opt.smartindent = true -- copy indent from current line when starting new one
-opt.fillchars = { eob = " " }
+opt.smartindent = true -- Insert indents automatically
+
 -- line wrapping
 opt.wrap = false     -- disable line wrapping
-opt.linebreak = true -- Wrap lines at convenient points
-opt.splitkeep = "screen" -- default "cursor", trying to play nice with bufferline 
+opt.splitkeep = "screen" -- default "cursor", trying to play nice with bufferline
 
 -- opt.shortmess:append({ W = true, I = true, c = true, C = true }) -- suppress some messages
 
 -- swap files and backup
 opt.swapfile = false
 opt.backup = false
-opt.undodir = os.getenv("HOME") .. "/.vim/undodir"
+opt.undodir = vim.fn.stdpath("data") .. "/undodir"
 opt.undofile = true
 
 -- search settings
-opt.hlsearch = false
+opt.hlsearch = true
 opt.incsearch = true
 opt.inccommand = "nosplit" -- preview incremental substitute
 opt.ignorecase = true      -- ignore case when searching
@@ -44,7 +41,7 @@ opt.smartcase = true       -- if you include mixed case in your search, assumes 
 opt.termguicolors = true
 opt.background = "dark" -- colorschemes that can be light or dark will be made dark
 opt.signcolumn = "yes"  -- show sign column so that text doesn't shift
-opt.scrolloff = 4       -- columns of context
+opt.scrolloff = 8       -- keep context visible above/below cursor
 opt.sidescrolloff = 8   -- Columns of context
 -- opt.isfname:append("@-@")
 
@@ -61,13 +58,12 @@ opt.splitbelow = true -- split horizontal window to the bottom
 opt.updatetime = 250
 opt.colorcolumn = "100"
 
--- clipboard -> still have <leader>y remap but not sure i like it
 opt.clipboard:append("unnamedplus") -- use system clipboard as default register
 
-opt.showmode = false                -- Dont show mode since we have a statusline
+opt.showmode = false -- Dont show mode since we have a statusline
 opt.fillchars = {
-  foldopen = "",
-  foldclose = "",
+  foldopen = "▾",
+  foldclose = "▸",
   fold = " ",
   foldsep = " ",
   diff = "╱",
@@ -81,7 +77,5 @@ opt.smoothscroll = true
 -- opt.foldlevelstart = 3
 -- opt.foldtext = "" -- sytanx highlight first line
 
-opt.smartcase = true   -- Don't ignore case with capitals
-opt.smartindent = true -- Insert indents automatically
-opt.winminwidth = 5    -- Minimum window width
-
+opt.winminwidth = 5   -- Minimum window width
+opt.equalalways = false -- Don't resize all windows when splits open/close

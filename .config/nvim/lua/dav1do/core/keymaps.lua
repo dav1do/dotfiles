@@ -23,11 +23,12 @@ vim.keymap.set("n", "<leader>sv", "<C-w>v", { desc = "Split window vertically" }
 vim.keymap.set("n", "<leader>sh", "<C-w>s", { desc = "Split window horizontally" })   -- split window horizontally
 vim.keymap.set("n", "<leader>se", "<C-w>=", { desc = "Make splits equal size" })      -- make split windows equal width & height
 vim.keymap.set("n", "<leader>sx", "<cmd>close<CR>", { desc = "Close current split" }) -- close current split window
+vim.keymap.set("n", "<leader>bx", "<cmd>close<CR>", { desc = "Close current split" }) -- close current split window
 
--- vim.keymap.set("n", "<leader>ml", "<C-w>L", { desc = "Move panel to right split" })
--- vim.keymap.set("n", "<leader>mj", "<C-w>J", { desc = "Move panel to bottom split" })
--- vim.keymap.set("n", "<leader>mk", "<C-w>K", { desc = "Move panel to top split" })
--- vim.keymap.set("n", "<leader>mh", "<C-w>H", { desc = "Move panel to left split" })
+vim.keymap.set("n", "<leader>ml", "<C-w>L", { desc = "Move window to right split" })
+vim.keymap.set("n", "<leader>mj", "<C-w>J", { desc = "Move window to bottom split" })
+vim.keymap.set("n", "<leader>mk", "<C-w>K", { desc = "Move window to top split" })
+vim.keymap.set("n", "<leader>mh", "<C-w>H", { desc = "Move window to left split" })
 
 -- Move to window using the <ctrl> hjkl keys (not necessary with tmux plugin)
 -- vim.keymap.set("n", "<C-h>", "<C-w>h", { desc = "Go to Left Window", remap = true })
@@ -35,15 +36,44 @@ vim.keymap.set("n", "<leader>sx", "<cmd>close<CR>", { desc = "Close current spli
 -- vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Go to Upper Window", remap = true })
 -- vim.keymap.set("n", "<C-l>", "<C-w>l", { desc = "Go to Right Window", remap = true })
 
+
+-- <Esc> exits terminal mode for plain shell terminals (psql, generic shell).
+-- TUI apps that use <Esc> internally are excluded:
+--   claude  → uses <C-e> instead (see claude.lua) to avoid cancelling the process
+--   lazygit → uses <Esc> for panel navigation; use <C-\><C-n> to escape if needed
+local tui_patterns = { "claude", "lazygit" }
+vim.api.nvim_create_autocmd("TermOpen", {
+  callback = function(args)
+    local name = vim.api.nvim_buf_get_name(args.buf)
+    for _, pat in ipairs(tui_patterns) do
+      if name:find(pat) then return end
+    end
+    vim.keymap.set("t", "<Esc>", "<C-\\><C-n>", { buffer = args.buf, desc = "Exit terminal mode" })
+  end,
+})
+
+-- psql in a bottom split, using $DATABASE_URL if set
+vim.keymap.set("n", "<leader>tq", function()
+  local url = os.getenv("DATABASE_URL")
+  local cmd = url and ("psql " .. url) or "psql"
+  vim.cmd("botright split | terminal " .. cmd)
+  vim.cmd("resize " .. math.floor(vim.o.lines * 0.4))
+  vim.cmd("startinsert")
+end, { desc = "Open psql terminal" })
+
+-- new vertical split terminal
+vim.keymap.set("n", "<leader>tt", function()
+  vim.cmd("vsplit | terminal")
+  vim.cmd("startinsert")
+end, { desc = "New terminal (vsplit)" })
+
 -- better up/down with line wrapping
 vim.keymap.set({ "n", "x" }, "j", "v:count == 0 ? 'gj' : 'j'", { desc = "Down", expr = true, silent = true })
-vim.keymap.set({ "n", "x" }, "<Down>", "v:count == 0 ? 'gj' : 'j'", { desc = "Down", expr = true, silent = true })
 vim.keymap.set({ "n", "x" }, "k", "v:count == 0 ? 'gk' : 'k'", { desc = "Up", expr = true, silent = true })
-vim.keymap.set({ "n", "x" }, "<Up>", "v:count == 0 ? 'gk' : 'k'", { desc = "Up", expr = true, silent = true })
 
--- map up/down for faster movement
-vim.keymap.set({ "n", "v" }, "<Up>", "2k", { desc = "Up 2 lines" })
-vim.keymap.set({ "n", "v" }, "<Down>", "2j", { desc = "Down 2 lines" })
+-- map up/down for faster movement (gj/gk to respect line wrapping)
+vim.keymap.set({ "n", "v" }, "<Up>", "2gk", { desc = "Up 2 lines" })
+vim.keymap.set({ "n", "v" }, "<Down>", "2gj", { desc = "Down 2 lines" })
 vim.keymap.set({ "n", "v" }, "<Right>", "2l", { desc = "Right 2" })
 vim.keymap.set({ "n", "v" }, "<Left>", "2h", { desc = "Left 2" })
 
@@ -64,28 +94,43 @@ vim.keymap.set("v", "<A-k>", ":<C-u>execute \"'<,'>move '<-\" . (v:count1 + 1)<c
 vim.keymap.set("v", "J", ":<C-u>execute \"'<,'>move '>+\" . v:count1<cr>gv=gv", { desc = "Move Down" })
 vim.keymap.set("v", "K", ":<C-u>execute \"'<,'>move '<-\" . (v:count1 + 1)<cr>gv=gv", { desc = "Move Up" })
 
--- buffers
-vim.keymap.set("n", "<S-h>", "<cmd>bprevious<cr>", { desc = "Prev Buffer" })
-vim.keymap.set("n", "<S-l>", "<cmd>bnext<cr>", { desc = "Next Buffer" })
-vim.keymap.set("n", "<leader>bd", vim.cmd.bd, { desc = "Delete Buffer" })
-vim.keymap.set("n", "<leader>bb", "<cmd>close<CR>", { desc = "Close current split" })
+-- buffers: use <leader>pb for fuzzy picker, <C-^> to toggle last two files
+-- H/L restored as vim built-ins (top/bottom of visible screen)
+-- <leader>bd is handled by snacks.lua (context-aware: dadbod, tool buffers, etc.)
+vim.keymap.set("n", "<leader>fs", function()
+  vim.cmd("enew")
+  vim.bo.buftype = "nofile"
+  vim.bo.bufhidden = "wipe"
+  vim.ui.input({ prompt = "Filetype (empty to skip): " }, function(ft)
+    if ft and ft ~= "" then
+      vim.bo.filetype = ft
+    end
+  end)
+end, { desc = "Scratch buffer" })
+
+vim.keymap.set("n", "<leader>ft", function()
+  vim.ui.input({ prompt = "Set filetype: ", default = vim.bo.filetype }, function(ft)
+    if ft and ft ~= "" then
+      vim.bo.filetype = ft
+    end
+  end)
+end, { desc = "Set filetype" })
 
 -- cursor mgmt
-vim.keymap.set("n", "J", "mzJz") -- don't move cursor when appending text to line
--- keep cursor in the middle when jumping and searching
--- vim.keymap.set("n", "<C-d>", "<C-d>zz")
--- vim.keymap.set("n", "<C-u>", "<C-u>zz")
+vim.keymap.set("n", "J", "mzJ`z") -- don't move cursor when appending text to line
+-- keep cursor centered when paging and searching
+vim.keymap.set("n", "<C-d>", "<C-d>zz")
+vim.keymap.set("n", "<C-u>", "<C-u>zz")
 vim.keymap.set("n", "n", "nzzzv")
 vim.keymap.set("n", "N", "Nzzzv")
 
--- don't replace buffer when pasting text (keep selection and send new to void buffer)
-vim.keymap.set("x", "<leader>p", [["_dP]])
+-- structural navigation: use ]f/[f (functions) and ]i/[i (impl/class) directly
 
--- copy to system clipboard
-vim.keymap.set({ "n", "v" }, "<leader>y", [["+y]])
-vim.keymap.set("n", "<leader>Y", [["+Y]])
+vim.keymap.set({ "n", "v" }, "<leader>D", [["_d]], { desc = "Delete without copying" })
+vim.keymap.set({ "n", "v" }, "<leader>P", [["0p]], { desc = "Paste last yank (safe)" })
 
-vim.keymap.set({ "n", "v" }, "<leader>d", [["_d]])
+-- Q replays the last macro (q records, Q replays)
+vim.keymap.set("n", "Q", "@@", { desc = "Replay last macro" })
 
 -- vertical edit mode doesn't save changes unless you press esc (primeagean)
 vim.keymap.set("i", "<C-c>", "<Esc>")
@@ -94,22 +139,28 @@ vim.keymap.set("i", "<C-c>", "<Esc>")
 vim.keymap.set("n", "<leader>ra", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]])
 -- vim.keymap.set("n", "<leader>x", "<cmd>!chmod +x %<CR>", { silent = true }) -- set current file as exectuable
 
+-- keep visual selection when indenting
+vim.keymap.set("v", ">", ">gv", { desc = "Indent and keep selection" })
+vim.keymap.set("v", "<", "<gv", { desc = "Dedent and keep selection" })
+
+-- toggles
+vim.keymap.set("n", "<leader>uw", function()
+  vim.wo.wrap = not vim.wo.wrap
+  vim.wo.linebreak = vim.wo.wrap -- word-boundary breaks when wrap is on
+end, { desc = "Toggle wrap" })
+
 -- reload plugins
-vim.keymap.set("n", "<leader>vpp", "<cmd>e ~/.config/nvim/lua/dav1do/init.lua<CR>");
+vim.keymap.set("n", "<leader>vpp", "<cmd>e ~/.config/nvim/lua/dav1do/init.lua<CR>")
+vim.keymap.set("n", "<leader>vr", "<cmd>source %<CR>", { desc = "Reload current file" })
 
 -- file mgmt
 -- vim.keymap.set("n", "<leader><leader>", function()
 --   vim.cmd("so") --reload file
 -- end)
 
-vim.keymap.set("n", "<leader>q", "<cmd>close<CR>", { desc = "Close current split" }) -- close current split window
-vim.keymap.set("n", "<leader>w", function()
+vim.keymap.set("n", "<leader>ww", function()
   vim.cmd("w")
 end, { desc = "write file" })
-vim.keymap.set("n", "<leader>qq", function()
-  vim.cmd("q")
-end, { desc = "quit buffer" })
-
 vim.keymap.set("n", "<leader>qa", function()
   vim.cmd("qa")
 end, { desc = "quit all buffers" })
@@ -117,3 +168,26 @@ end, { desc = "quit all buffers" })
 vim.keymap.set("n", "<leader>qqa", function()
   vim.cmd("qa!")
 end, { desc = "force quit all" })
+
+-- diagnostic/error navigation (current buffer only)
+vim.keymap.set("n", "]d", function() vim.diagnostic.jump({ count = 1 }) end,  { desc = "Next diagnostic" })
+vim.keymap.set("n", "[d", function() vim.diagnostic.jump({ count = -1 }) end, { desc = "Prev diagnostic" })
+vim.keymap.set("n", "]e", function() vim.diagnostic.jump({ count = 1,  severity = vim.diagnostic.severity.ERROR }) end, { desc = "Next error" })
+vim.keymap.set("n", "[e", function() vim.diagnostic.jump({ count = -1, severity = vim.diagnostic.severity.ERROR }) end, { desc = "Prev error" })
+
+-- cross-file error navigation via Trouble (jumps through project-wide diagnostics)
+-- Ensures the diagnostics list is open (background) so there is data to navigate.
+vim.keymap.set("n", "]E", function()
+  local t = require("trouble")
+  if not t.is_open({ mode = "diagnostics" }) then
+    t.open({ mode = "diagnostics", focus = false })
+  end
+  t.next({ mode = "diagnostics", skip_groups = true, jump = true })
+end, { desc = "Next error (project)" })
+vim.keymap.set("n", "[E", function()
+  local t = require("trouble")
+  if not t.is_open({ mode = "diagnostics" }) then
+    t.open({ mode = "diagnostics", focus = false })
+  end
+  t.prev({ mode = "diagnostics", skip_groups = true, jump = true })
+end, { desc = "Prev error (project)" })

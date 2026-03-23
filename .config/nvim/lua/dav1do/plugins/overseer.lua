@@ -1,6 +1,47 @@
+local function overseer_run_picker()
+  local overseer = require("overseer")
+  local pickers = require("telescope.pickers")
+  local finders = require("telescope.finders")
+  local conf = require("telescope.config").values
+  local actions = require("telescope.actions")
+  local action_state = require("telescope.actions.state")
+
+  require("overseer.template").list({ dir = vim.fn.getcwd() }, function(templates)
+    pickers
+      .new({}, {
+        prompt_title = "Run Task",
+        finder = finders.new_table({
+          results = templates,
+          entry_maker = function(tmpl)
+            local display = tmpl.name
+            if tmpl.desc then
+              display = display .. "  " .. tmpl.desc
+            end
+            return { value = tmpl, display = display, ordinal = tmpl.name }
+          end,
+        }),
+        sorter = conf.generic_sorter({}),
+        attach_mappings = function(prompt_bufnr)
+          actions.select_default:replace(function()
+            actions.close(prompt_bufnr)
+            local sel = action_state.get_selected_entry()
+            if sel then
+              overseer.run_task({ name = sel.value.name })
+            end
+          end)
+          return true
+        end,
+      })
+      :find()
+  end)
+end
+
 local function overseer_project_cmd(kind)
-  local cwd = vim.loop.cwd()
-  local root = vim.fs.find({ "Cargo.toml", "pnpm-lock.yaml", "yarn.lock", "bun.lockb", "package.json" }, { upward = true, path = cwd })[1]
+  local cwd = vim.uv.cwd()
+  local root = vim.fs.find(
+    { "Cargo.toml", "pnpm-lock.yaml", "yarn.lock", "bun.lockb", "package.json" },
+    { upward = true, path = cwd }
+  )[1]
 
   local project
   if root then
@@ -20,14 +61,16 @@ local function overseer_project_cmd(kind)
   local cmd, args
   if project == "rust" then
     if kind == "check" then
-      cmd, args = "cargo", { "check" }
+      cmd, args = "cargo", { "check", "--workspace", "--all-targets", "--all-features" }
+    elseif kind == "lint" then
+      cmd, args = "cargo", { "clippy", "--workspace", "--all-targets", "--all-features" }
     elseif kind == "build" then
       cmd, args = "cargo", { "build" }
     elseif kind == "test" then
       cmd, args = "cargo", { "test" }
     end
   elseif project == "npm-node" then
-    if kind == "check" then
+    if kind == "check" or kind == "lint" then
       cmd, args = "npm", { "run", "lint" }
     elseif kind == "build" then
       cmd, args = "npm", { "run", "build" }
@@ -35,7 +78,7 @@ local function overseer_project_cmd(kind)
       cmd, args = "npm", { "test" }
     end
   elseif project == "pnpm-node" then
-    if kind == "check" then
+    if kind == "check" or kind == "lint" then
       cmd, args = "pnpm", { "run", "lint" }
     elseif kind == "build" then
       cmd, args = "pnpm", { "run", "build" }
@@ -43,7 +86,7 @@ local function overseer_project_cmd(kind)
       cmd, args = "pnpm", { "run", "test" }
     end
   elseif project == "yarn-node" then
-    if kind == "check" then
+    if kind == "check" or kind == "lint" then
       cmd, args = "yarn", { "lint" }
     elseif kind == "build" then
       cmd, args = "yarn", { "build" }
@@ -51,7 +94,7 @@ local function overseer_project_cmd(kind)
       cmd, args = "yarn", { "test" }
     end
   elseif project == "bun-node" then
-    if kind == "check" then
+    if kind == "check" or kind == "lint" then
       cmd, args = "bun", { "run", "lint" }
     elseif kind == "build" then
       cmd, args = "bun", { "run", "build" }
@@ -78,6 +121,13 @@ local function overseer_project_cmd(kind)
     args = args,
     cwd = root_dir,
   })
+  task:subscribe("on_complete", function(t)
+    if t.status ~= "FAILURE" then
+      vim.defer_fn(function()
+        t:dispose()
+      end, 1000)
+    end
+  end)
   task:start()
 end
 
@@ -100,7 +150,6 @@ return {
       "OverseerDeleteBundle",
       "OverseerShell",
       "OverseerRun",
-      "OverseerInfo",
       "OverseerBuild",
       "OverseerQuickAction",
       "OverseerTaskAction",
@@ -108,6 +157,9 @@ return {
     },
     opts = {
       dap = false,
+      -- explicitly disable vscode template: it always warns about unsupported
+      -- task types when a .vscode/tasks.json with cargo tasks is present
+      disable_template_modules = { "overseer.template.vscode" },
       templates = {
         "cargo",
         "just",
@@ -125,7 +177,9 @@ return {
         "cargo-make",
       },
       task_list = {
-        direction = "right",
+        direction = "bottom",
+        min_height = 10,
+        max_height = 30,
         render = function(task)
           local render = require("overseer.render")
           local ret = {
@@ -177,21 +231,12 @@ return {
     -- stylua: ignore
     keys = {
       { "<leader>ow", "<cmd>OverseerToggle<cr>",      desc = "Task list" },
-      { "<leader>oo", "<cmd>OverseerRun<cr>",         desc = "Run task" },
-      { "<leader>oq", "<cmd>OverseerQuickAction<cr>", desc = "Action recent task" },
-      { "<leader>oi", "<cmd>OverseerInfo<cr>",        desc = "Overseer Info" },
+      { "<leader>oo", overseer_run_picker,                desc = "Run task (picker)" },
+      { "<leader>oq", "<cmd>OverseerTaskAction<cr>",    desc = "Task action" },
       { "<leader>ob", function() overseer_project_cmd("build") end, desc = "Project build" },
       { "<leader>ot", function() overseer_project_cmd("test") end,  desc = "Project test" },
       { "<leader>oc", function() overseer_project_cmd("check") end, desc = "Project check" },
-    },
-  },
-  {
-    "folke/which-key.nvim",
-    optional = true,
-    opts = {
-      spec = {
-        { "<leader>o", group = "overseer", desc = "+overseer" },
-      },
+      { "<leader>ol", function() overseer_project_cmd("lint") end, desc = "Project lint (clippy)" },
     },
   },
   {

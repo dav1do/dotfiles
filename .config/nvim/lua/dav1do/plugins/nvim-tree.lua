@@ -8,6 +8,15 @@ return {
 
     --vim.g.nvim_tree_auto_close = 1
     require("nvim-tree").setup({
+      on_attach = function(bufnr)
+        local api = require("nvim-tree.api")
+        -- apply all default nvim-tree keymaps first
+        api.config.mappings.default_on_attach(bufnr)
+        -- q closes tree (consistent with all other tool panels)
+        vim.keymap.set("n", "q", api.tree.close, { buffer = bufnr, nowait = true, desc = "Close tree" })
+        -- remove nvim-tree's s (system open) so Flash jump works inside the tree
+        pcall(vim.keymap.del, "n", "s", { buffer = bufnr })
+      end,
       view = {
         width = 35,
         relativenumber = true,
@@ -26,13 +35,20 @@ return {
           },
         },
       },
-      -- disable window_picker for
-      -- explorer to work well with
-      -- window splits
       actions = {
         open_file = {
+          -- When only one eligible window exists the picker is silent (no UI).
+          -- When multiple code windows are open it prompts. Utility windows
+          -- (results, sidebar, quickfix, etc.) are excluded so files never
+          -- accidentally open in a dadbod result split or similar.
           window_picker = {
-            enable = false,
+            enable = true,
+            picker = "default",
+            exclude = {
+              filetype = { "dbout", "dbui", "trouble", "qf", "diff",
+                           "fugitive", "fugitiveblame", "notify" },
+              buftype  = { "terminal", "nofile", "help" },
+            },
           },
         },
       },
@@ -47,11 +63,34 @@ return {
       },
     })
 
+    -- Keep sidebar width stable — prevent Neovim from stealing/giving columns
+    -- when other splits open/close alongside the tree.
+    vim.api.nvim_create_autocmd("FileType", {
+      pattern = "NvimTree",
+      callback = function() vim.wo.winfixwidth = true end,
+    })
+
     -- set keymaps
     local keymap = vim.keymap
-    keymap.set({ "n", "i" }, "<C-e>", "<cmd>NvimTreeToggle<CR>", { desc = "Toggle file explorer" })
-    keymap.set("n", "<leader>ee", "<cmd>NvimTreeToggle<CR>", { desc = "Toggle file explorer" })                         -- toggle file explorer
-    keymap.set("n", "<leader>ef", "<cmd>NvimTreeFindFileToggle<CR>", { desc = "Toggle file explorer on current file" }) -- toggle file explorer on current file
+    local skip_ft = { NvimTree = true, dbout = true, dbui = true, trouble = true, OverseerList = true }
+    keymap.set("n", "<C-e>", function()
+      local api = require("nvim-tree.api")
+      -- If currently in a utility window, move to a real code window first
+      -- so NvimTree doesn't vsplit from the wrong place
+      local cur_ft = vim.bo[vim.api.nvim_get_current_buf()].filetype
+      if skip_ft[cur_ft] then
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+          local cfg = vim.api.nvim_win_get_config(win)
+          local ft  = vim.bo[vim.api.nvim_win_get_buf(win)].filetype
+          if cfg.relative == "" and not skip_ft[ft] then
+            vim.api.nvim_set_current_win(win)
+            break
+          end
+        end
+      end
+      api.tree.toggle({ focus = false, find_file = false })
+    end, { desc = "Toggle file explorer" })
+    keymap.set("n", "<leader>ee", "<cmd>NvimTreeFindFileToggle<CR>", { desc = "Toggle file explorer on current file" }) -- toggle file explorer on current file
     keymap.set("n", "<leader>ec", "<cmd>NvimTreeCollapse<CR>", { desc = "Collapse file explorer" })                     -- collapse file explorer
     keymap.set("n", "<leader>er", "<cmd>NvimTreeRefresh<CR>", { desc = "Refresh file explorer" })                       -- refresh file explorer
 
