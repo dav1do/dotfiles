@@ -7,7 +7,7 @@ return {
       win = {
         type = "split",
         position = "right",
-        size = 0.3,
+        size = 0.33,
         relative = "win",
         wo = { wrap = true },   -- wrap long diagnostics so full message is visible
       },

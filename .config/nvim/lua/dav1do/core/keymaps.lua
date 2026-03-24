@@ -1,5 +1,6 @@
 -- set leader key to space
 vim.g.mapleader = " "
+-- <localleader> defaults to \ — used for filetype-specific bindings (e.g. crates in Cargo.toml)
 
 -- vim.keymap.set("n", "<leader>pv", vim.cmd.Ex)
 
@@ -60,12 +61,6 @@ vim.keymap.set("n", "<leader>tq", function()
   vim.cmd("resize " .. math.floor(vim.o.lines * 0.4))
   vim.cmd("startinsert")
 end, { desc = "Open psql terminal" })
-
--- new vertical split terminal
-vim.keymap.set("n", "<leader>tt", function()
-  vim.cmd("vsplit | terminal")
-  vim.cmd("startinsert")
-end, { desc = "New terminal (vsplit)" })
 
 -- better up/down with line wrapping
 vim.keymap.set({ "n", "x" }, "j", "v:count == 0 ? 'gj' : 'j'", { desc = "Down", expr = true, silent = true })
@@ -129,8 +124,27 @@ vim.keymap.set("n", "N", "Nzzzv")
 vim.keymap.set({ "n", "v" }, "<leader>D", [["_d]], { desc = "Delete without copying" })
 vim.keymap.set({ "n", "v" }, "<leader>P", [["0p]], { desc = "Paste last yank (safe)" })
 
--- Q replays the last macro (q records, Q replays)
-vim.keymap.set("n", "Q", "@@", { desc = "Replay last macro" })
+-- Macro recording: moved to explicit keys to prevent accidental q-in-code-buffer triggers.
+-- Buffer-local q mappings (trouble, neotest, rustaceanvim panels) are unaffected — they
+-- always take precedence over this global mapping.
+vim.keymap.set("n", "q",  "<nop>")                                        -- disable accidental recording
+vim.keymap.set("n", "gq", "q",   { desc = "Record macro (gq{register})" }) -- intentional: gqm starts @m, gq stops
+vim.keymap.set("n", "Q",  "@@",  { desc = "Replay last macro" })
+
+-- Notify when recording starts/stops so it's impossible to miss.
+-- Capture the register in Enter because reg_recording() is already cleared by Leave.
+local _macro_reg = ""
+vim.api.nvim_create_autocmd("RecordingEnter", {
+  callback = function()
+    _macro_reg = vim.fn.reg_recording()
+    vim.notify("Recording @" .. _macro_reg .. "   gq to stop", vim.log.levels.WARN, { title = "Macro", timeout = 10000 })
+  end,
+})
+vim.api.nvim_create_autocmd("RecordingLeave", {
+  callback = function()
+    vim.notify("Saved @" .. _macro_reg .. "   Q or @" .. _macro_reg .. " to play", vim.log.levels.INFO, { title = "Macro", timeout = 10000 })
+  end,
+})
 
 -- vertical edit mode doesn't save changes unless you press esc (primeagean)
 vim.keymap.set("i", "<C-c>", "<Esc>")
@@ -168,6 +182,10 @@ end, { desc = "quit all buffers" })
 vim.keymap.set("n", "<leader>qqa", function()
   vim.cmd("qa!")
 end, { desc = "force quit all" })
+
+-- quickfix navigation (used with <leader>crq / :copen)
+vim.keymap.set("n", "]q", "<cmd>cnext<cr>", { desc = "Next quickfix" })
+vim.keymap.set("n", "[q", "<cmd>cprev<cr>", { desc = "Prev quickfix" })
 
 -- diagnostic/error navigation (current buffer only)
 vim.keymap.set("n", "]d", function() vim.diagnostic.jump({ count = 1 }) end,  { desc = "Next diagnostic" })

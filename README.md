@@ -4,13 +4,13 @@ Most of these are optimized for my [keyboard layout](https://configure.zsa.io/er
 
 ### Tools
 
-- cli tools: `brew install lsd ripgrep bat zoxide`
+- cli tools: `brew install lsd ripgrep bat zoxide fzf`
 - kubectl: https://kubernetes.io/docs/tasks/tools/install-kubectl-macos/
 - alacritty: `brew install --cask alacritty`
 - ohmyzsh: `sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"`
 - install p10k: `git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k && source ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k/powerlevel10k.zsh-theme`
 - plugins: `git clone https://github.com/zsh-users/zsh-syntax-highlighting ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting && git clone https://github.com/zsh-users/zsh-syntax-highlighting ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting`
-- tmux: `brew install tmux`
+- tmux: `brew install tmux sesh`
 - tmux plugin manager: https://github.com/tmux-plugins/tpm
 - tmux theme plugin: https://github.com/catppuccin/tmux?tab=readme-ov-file#manual-recommended
 - neovim: [prereqs](https://github.com/neovim/neovim/blob/master/BUILD.md#macos) and build from source

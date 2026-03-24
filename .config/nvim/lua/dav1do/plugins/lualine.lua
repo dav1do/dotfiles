@@ -4,11 +4,19 @@ return {
   config = function()
     require("lualine").setup({
       sections = {
-        lualine_a = { "mode" },
+        -- mode + macro recording side-by-side so you can't miss either
+        lualine_a = {
+          "mode",
+          {
+            function() return " REC @" .. vim.fn.reg_recording() end,
+            cond = function() return vim.fn.reg_recording() ~= "" end,
+            color = { fg = "#000000", bg = "#ff9e64", gui = "bold" },
+          },
+        },
         lualine_b = { "branch", "diff" },
         lualine_c = { "filename" },
         lualine_x = {
-          -- Noice recording/macro indicator
+          -- noice mode (command-line messages like :%s/ confirmation prompts)
           {
             function() return require("noice").api.statusline.mode.get() end,
             cond = function() return require("noice").api.statusline.mode.has() end,

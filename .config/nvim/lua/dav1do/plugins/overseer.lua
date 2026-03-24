@@ -36,6 +36,40 @@ local function overseer_run_picker()
   end)
 end
 
+-- Read package.json and return the first matching script name from the candidates list.
+-- Returns nil (with a warning) if none match, so callers can fall back or abort.
+local function find_node_script(root_dir, kind, candidates)
+  local path = root_dir .. "/package.json"
+  local f = io.open(path, "r")
+  if not f then
+    vim.notify("Overseer: cannot read " .. path, vim.log.levels.WARN)
+    return nil
+  end
+  local content = f:read("*a")
+  f:close()
+  local ok, pkg = pcall(vim.json.decode, content)
+  if not ok or not pkg or not pkg.scripts then
+    vim.notify("Overseer: no scripts block in " .. path, vim.log.levels.WARN)
+    return nil
+  end
+  for _, name in ipairs(candidates) do
+    if pkg.scripts[name] then
+      vim.notify("Overseer [" .. kind .. "]: using script '" .. name .. "'", vim.log.levels.INFO)
+      return name
+    end
+  end
+  -- nothing matched — list what is available so the user knows what to add to the priority list
+  local available = vim.tbl_keys(pkg.scripts)
+  table.sort(available)
+  vim.notify(
+    "Overseer [" .. kind .. "]: no matching script found.\n"
+    .. "Tried: " .. table.concat(candidates, ", ") .. "\n"
+    .. "Available: " .. table.concat(available, ", "),
+    vim.log.levels.WARN
+  )
+  return nil
+end
+
 local function overseer_project_cmd(kind)
   local cwd = vim.uv.cwd()
   local root = vim.fs.find(
@@ -43,72 +77,61 @@ local function overseer_project_cmd(kind)
     { upward = true, path = cwd }
   )[1]
 
-  local project
-  if root then
-    if root:sub(-#"Cargo.toml") == "Cargo.toml" then
-      project = "rust"
-    elseif root:sub(-#"pnpm-lock.yaml") == "pnpm-lock.yaml" then
-      project = "pnpm-node"
-    elseif root:sub(-#"yarn.lock") == "yarn.lock" then
-      project = "yarn-node"
-    elseif root:sub(-#"bun.lockb") == "bun.lockb" then
-      project = "bun-node"
-    elseif root:sub(-#"package.json") == "package.json" then
-      project = "npm-node"
-    end
+  if not root then
+    vim.notify("Overseer: no project root found", vim.log.levels.WARN)
+    return
   end
 
+  local filename = vim.fs.basename(root)
+  local root_dir = vim.fs.dirname(root)
   local cmd, args
-  if project == "rust" then
+
+  if filename == "Cargo.toml" then
+    -- Rust: check = cargo check, lint = clippy (read-only linting, not auto-fix)
+    local cmds = {
+      check = { "cargo", { "check", "--workspace", "--all-targets", "--all-features" } },
+      lint  = { "cargo", { "clippy", "--workspace", "--all-targets", "--all-features" } },
+      build = { "cargo", { "build" } },
+      test  = { "cargo", { "test" } },
+    }
+    if cmds[kind] then cmd, args = cmds[kind][1], cmds[kind][2] end
+
+  else
+    -- Node.js: detect package manager from lockfile
+    local pm = ({ ["pnpm-lock.yaml"] = "pnpm", ["yarn.lock"] = "yarn", ["bun.lockb"] = "bun" })[filename] or "npm"
+
     if kind == "check" then
-      cmd, args = "cargo", { "check", "--workspace", "--all-targets", "--all-features" }
+      -- Type-check only — read-only, never mutates files.
+      -- "lint" is intentionally absent: most projects wire it to auto-fix.
+      local script = find_node_script(root_dir, kind, {
+        "check:types", "type-check", "typecheck", "types", "tsc",
+      })
+      if not script then return end
+      cmd, args = pm, { "run", script }
+
     elseif kind == "lint" then
-      cmd, args = "cargo", { "clippy", "--workspace", "--all-targets", "--all-features" }
+      -- Broader read-only checks (eslint --no-fix, stylelint, etc.).
+      -- "lint" excluded for the same auto-fix reason above.
+      local script = find_node_script(root_dir, kind, {
+        "check", "check:all", "check:lint", "lint:check", "validate", "verify",
+      })
+      if not script then return end
+      cmd, args = pm, { "run", script }
+
     elseif kind == "build" then
-      cmd, args = "cargo", { "build" }
+      cmd, args = pm, { "run", "build" }
+
     elseif kind == "test" then
-      cmd, args = "cargo", { "test" }
-    end
-  elseif project == "npm-node" then
-    if kind == "check" or kind == "lint" then
-      cmd, args = "npm", { "run", "lint" }
-    elseif kind == "build" then
-      cmd, args = "npm", { "run", "build" }
-    elseif kind == "test" then
-      cmd, args = "npm", { "test" }
-    end
-  elseif project == "pnpm-node" then
-    if kind == "check" or kind == "lint" then
-      cmd, args = "pnpm", { "run", "lint" }
-    elseif kind == "build" then
-      cmd, args = "pnpm", { "run", "build" }
-    elseif kind == "test" then
-      cmd, args = "pnpm", { "run", "test" }
-    end
-  elseif project == "yarn-node" then
-    if kind == "check" or kind == "lint" then
-      cmd, args = "yarn", { "lint" }
-    elseif kind == "build" then
-      cmd, args = "yarn", { "build" }
-    elseif kind == "test" then
-      cmd, args = "yarn", { "test" }
-    end
-  elseif project == "bun-node" then
-    if kind == "check" or kind == "lint" then
-      cmd, args = "bun", { "run", "lint" }
-    elseif kind == "build" then
-      cmd, args = "bun", { "run", "build" }
-    elseif kind == "test" then
-      cmd, args = "bun", { "test" }
+      -- npm has a first-class `test` shorthand; others use `run test`
+      cmd, args = pm == "npm" and { "npm", { "test" } } or { pm, { "run", "test" } }
     end
   end
 
   if not (cmd and args) then
-    vim.notify("Overseer: no project command for " .. kind, vim.log.levels.WARN)
+    vim.notify("Overseer: no command for kind=" .. kind, vim.log.levels.WARN)
     return
   end
 
-  local root_dir = root and vim.fs.dirname(root) or cwd
   local ok, overseer = pcall(require, "overseer")
   if not ok then
     vim.notify("Overseer: failed to load overseer.nvim", vim.log.levels.ERROR)
@@ -123,9 +146,7 @@ local function overseer_project_cmd(kind)
   })
   task:subscribe("on_complete", function(t)
     if t.status ~= "FAILURE" then
-      vim.defer_fn(function()
-        t:dispose()
-      end, 1000)
+      vim.defer_fn(function() t:dispose() end, 1000)
     end
   end)
   task:start()

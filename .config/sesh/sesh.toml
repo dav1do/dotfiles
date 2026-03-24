@@ -1,0 +1,11 @@
+#:schema https://github.com/joshmedeski/sesh/raw/main/sesh.schema.json
+
+[[session]]
+name = "ukon-core"
+path = "~/ukon/ukon-core"
+startup_command = "~/.config/sesh/scripts/edit-code.sh"
+
+[[session]]
+name = "ui"
+path = "~/ukon/ui"
+startup_command = "~/.config/sesh/scripts/edit-code.sh"

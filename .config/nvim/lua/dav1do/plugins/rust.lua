@@ -16,18 +16,29 @@ return
         cmp = { enabled = true },
       },
     },
-    keys = {
-      { "<leader>cv",  function() require("crates").show_versions_popup() end,     desc = "Show crate [v]ersions" },
-      { "<leader>cF",  function() require("crates").show_features_popup() end,     desc = "Show crate [F]eatures" },
-      { "<leader>cd",  function() require("crates").show_dependencies_popup() end, desc = "Show crate [d]ependencies" },
-      { "<leader>cu",  function() require("crates").update_crate() end,            desc = "[u]pdate create" },
-      { "<leader>cU",  function() require("crates").upgrade_crate() end,           desc = "[U]pgrade crate" },
-      { "<leader>cua", function() require("crates").update_all_crates() end,       desc = "Update [a]ll crates" },
-      { "<leader>cuA", function() require("crates").upgrade_all_crates() end,      desc = "Upgrade [A]ll crates" },
-      { "<leader>cH",  function() require("crates").open_homepage() end,           desc = "Crate [H]omepage" },
-      { "<leader>cD",  function() require("crates").open_documentation() end,      desc = "Crate [D]oc page" },
-      { "<leader>cR",  function() require("crates").open_repository() end,         desc = "Crate [R]epository" },
-    }
+    config = function(_, opts)
+      require("crates").setup(opts)
+      -- buffer-local keymaps via <localleader> — only active in Cargo.toml
+      vim.api.nvim_create_autocmd("BufEnter", {
+        pattern = "Cargo.toml",
+        callback = function(args)
+          local buf = args.buf
+          local c = require("crates")
+          local map = function(key, fn, desc)
+            vim.keymap.set("n", "<localleader>" .. key, fn, { buffer = buf, desc = desc })
+          end
+          map("v",  c.show_versions_popup,     "crates: versions")
+          map("f",  c.show_features_popup,     "crates: features")
+          map("d",  c.show_dependencies_popup, "crates: dependencies")
+          map("u",  c.update_crate,            "crates: update")
+          map("U",  c.upgrade_crate,           "crates: upgrade")
+          map("ua", c.update_all_crates,       "crates: update all")
+          map("uA", c.upgrade_all_crates,      "crates: upgrade all")
+          map("D",  c.open_documentation,      "crates: open docs")
+          map("r",  c.open_repository,         "crates: open repository")
+        end,
+      })
+    end,
   },
   {
     'vxpm/ferris.nvim',
@@ -46,10 +57,21 @@ return
     version = "^6",
     lazy = false,
     keys = {
-      { "<leader>cA",  function() vim.cmd.RustLsp("codeAction") end,        desc = "Rust Code [A]ction" },
-      { "<C-.>",       function() vim.cmd.RustLsp("codeAction") end,        desc = "Rust Code [A]ction" },
-      { "<leader>crd", function() vim.cmd.RustLsp("debuggables") end,       desc = "Rust [D]ebuggables" },
-      { "<leader>cre", function() vim.cmd.RustLsp("expandMacro") end,       desc = "[E]xpand Macro" },
+      { "<C-.>",        function() vim.cmd.RustLsp("codeAction") end,                     desc = "Rust Code Action" },
+      -- diagnostic rendering: K renders the diagnostic under cursor; <leader>ce cycles to next.
+      -- Guard: if focus is in a sidebar/panel, wincmd p returns to the code window first so
+      -- the horizontal split opens below code, not below the sidebar.
+      { "<leader>ce", function()
+          if vim.bo.buftype ~= "" then vim.cmd("wincmd p") end
+          vim.cmd.RustLsp({ "renderDiagnostic", "cycle" })
+        end, desc = "[rust] Next diagnostic (cargo-style)" },
+      { "<leader>cE",   function() vim.cmd.RustLsp({ "explainError",     "current" }) end, desc = "[rust] Explain error code" },
+      -- dump current LSP diagnostics (= cargo check output) into quickfix; navigate with ]q/[q
+      { "<leader>crq", function()
+          vim.diagnostic.setqflist({ severity = vim.diagnostic.severity.ERROR, open = true })
+        end, desc = "[R]ust errors → quickfix" },
+      { "<leader>crd",  function() vim.cmd.RustLsp("debuggables") end,                     desc = "Rust [D]ebuggables" },
+      { "<leader>cre",  function() vim.cmd.RustLsp("expandMacro") end,                     desc = "[E]xpand Macro" },
       { "<leader>crr", function() vim.cmd.RustLsp("rebuildProcMacros") end, desc = "[R]ebuild proc macros" },
       { "<leader>crs", function() vim.cmd.RustLsp("syntaxTree") end,        desc = "[S]yntax tree" },
       { "<leader>crt", function() vim.cmd.RustLsp("openCargo") end,         desc = "Open Cargo.[t]oml" },
@@ -70,6 +92,14 @@ return
       },
     },
     opts = {
+      tools = {
+        float_win_config = {
+          -- auto_focus: cursor lands inside the float so <CR> / q work immediately
+          auto_focus = true,
+          -- horizontal opens below current window (vertical goes to editor edge)
+          open_split = "horizontal",
+        },
+      },
       server = {
         on_attach = function(_, bufnr)
           -- switched keymaps to keys object to get better which key support
@@ -79,13 +109,30 @@ return
           -- rust-analyzer language server configuration
           ["rust-analyzer"] = {
             cargo = {
-              allFeatures = true,
+              -- allFeatures causes RA to analyse every feature combination — more
+              -- complete but generates extra diagnostics for non-default code paths.
+              -- Set to true if you regularly work across feature flags; false otherwise.
+              allFeatures = false,
               loadOutDirsFromCheck = true,
               buildScripts = {
                 enable = true,
               }
             },
             check = { command = "check" },
+            diagnostics = {
+              -- Suppress RA's own analysis-layer noise; cargo check surfaces the real errors.
+              -- "inactive-code"        — cfg-gated blocks grayed out (visual noise)
+              -- "unresolved-proc-macro"— proc-macro expansion failed; cargo check shows the real error
+              -- "syntax-error"         — RA's parser generates cascading parse errors after any real
+              --                          error; cargo check gives the canonical error with spans
+              -- "unresolved-macro-call"— similar cascade when a macro reference can't be resolved
+              disabled = {
+                "inactive-code",
+                "unresolved-proc-macro",
+                "syntax-error",
+                "unresolved-macro-call",
+              },
+            },
             files = {
               exclude = {
                 ".direnv",
@@ -120,6 +167,36 @@ return
     },
     config = function(_, opts)
       vim.g.rustaceanvim = vim.tbl_deep_extend("keep", vim.g.rustaceanvim or {}, opts or {})
+
+      -- Manage the renderDiagnostic / explainError terminal split:
+      --   • wincmd J  — move to full-width bottom split regardless of where rustaceanvim opened it
+      --   • ra_diag_buf tracking — close any previous terminal before a new one appears
+      --     (handles K-then-<leader>ce, double-K, etc. without a "already connected" error)
+      local ra_diag_buf = nil
+      vim.api.nvim_create_autocmd("TermOpen", {
+        callback = function(args)
+          local name = vim.api.nvim_buf_get_name(args.buf)
+          if not name:find("rustaceanvim") then return end
+
+          -- close the previous terminal if still open
+          if ra_diag_buf and vim.api.nvim_buf_is_valid(ra_diag_buf) then
+            for _, w in ipairs(vim.fn.win_findbuf(ra_diag_buf)) do
+              pcall(vim.api.nvim_win_close, w, true)
+            end
+            pcall(vim.api.nvim_buf_delete, ra_diag_buf, { force = true })
+          end
+          ra_diag_buf = args.buf
+
+          vim.cmd("wincmd J") -- pull to full-width bottom, regardless of sidebar layout
+          vim.cmd("resize 18")
+
+          vim.keymap.set("n", "q", function()
+            vim.cmd("close")
+            pcall(vim.api.nvim_buf_delete, args.buf, { force = true })
+            ra_diag_buf = nil
+          end, { buffer = args.buf, nowait = true, desc = "Close diagnostic split" })
+        end,
+      })
     end,
   }
 }

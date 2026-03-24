@@ -116,17 +116,12 @@ return {
         -- options for vim.diagnostic.config()
         ---@type vim.diagnostic.Opts
         diagnostics = {
-          underline = true,
+          -- underline errors and warnings; hints/info don't need squiggles
+          underline = { severity = { min = vim.diagnostic.severity.WARN } },
           update_in_insert = false,
-          virtual_text = {
-            spacing = 4,
-            source = "if_many",
-            prefix = "●",
-            -- this will set set the prefix to a function that returns the diagnostics icon based on the severity
-            -- this only works on a recent 0.10.0 build. Will be set to "●" when not supported
-            -- prefix = "icons",
-          },
+          virtual_text = false,
           severity_sort = true,
+          -- suppress gutter signs for HINT and INFO — too much noise
           signs = {
             text = {
               [vim.diagnostic.severity.ERROR] = " ",
@@ -134,11 +129,16 @@ return {
               [vim.diagnostic.severity.HINT] = " ",
               [vim.diagnostic.severity.INFO] = " ",
             },
+            severity = { min = vim.diagnostic.severity.WARN },
+          },
+          -- float: source tells you which LSP is complaining (rust-analyzer, eslint, …)
+          float = {
+            border = "rounded",
+            source = true,
+            header = "",
+            prefix = "",
           },
         },
-        -- Enable this to enable the builtin LSP inlay hints on Neovim >= 0.10.0
-        -- Be aware that you also will need to properly configure your LSP server to
-        -- provide the inlay hints.
         inlay_hints = {
           enabled = true,
           exclude = { "vue" }, -- filetypes for which you don't want to enable inlay hints
@@ -264,7 +264,27 @@ return {
         callback = function(event)
           local buf = { buffer = event.buf }
 
-          -- vim.keymap.set('n', 'K', '<cmd>lua vim.lsp.buf.hover()<cr>', opts) -- default already
+          -- enable inlay hints for this buffer unless the filetype is excluded
+          if opts.inlay_hints.enabled then
+            local ft = vim.bo[event.buf].filetype
+            if not vim.tbl_contains(opts.inlay_hints.exclude or {}, ft) then
+              vim.lsp.inlay_hint.enable(true, { bufnr = event.buf })
+            end
+          end
+
+          -- K: cargo-style renderDiagnostic for Rust (full context spans), plain float otherwise.
+          -- Dedup/positioning is handled by the TermOpen autocmd in rust.lua.
+          vim.keymap.set('n', 'K', function()
+            local lnum = vim.fn.line('.') - 1
+            local diags = vim.diagnostic.get(0, { lnum = lnum })
+            if #diags > 0 and #vim.lsp.get_clients({ bufnr = 0, name = "rust_analyzer" }) > 0 then
+              vim.cmd.RustLsp({ "renderDiagnostic", "current" })
+            elseif #diags > 0 then
+              vim.diagnostic.open_float(nil, { focus = false, scope = "line" })
+            else
+              vim.lsp.buf.hover()
+            end
+          end, { buffer = event.buf, desc = "Hover / diagnostic float" })
           vim.keymap.set('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<cr>', buf)
           vim.keymap.set('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<cr>', buf)
           vim.keymap.set('n', 'gi', '<cmd>lua vim.lsp.buf.implementation()<cr>', buf)
@@ -275,8 +295,16 @@ return {
           vim.keymap.set('n', 'gR', '<cmd>Trouble lsp_references toggle<cr>', buf)
           vim.keymap.set('n', 'gS', '<cmd>lua vim.lsp.buf.signature_help()<cr>', buf)
           vim.keymap.set('n', '<F2>', '<cmd>lua vim.lsp.buf.rename()<cr>', buf)
-          vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { buffer = event.buf, desc = "code action" })
-          vim.keymap.set("n", "<leader>cn", "<cmd>Navbuddy<cr>", { buffer = event.buf, desc = "navbuddy" })
+          -- smart code action: rust-analyzer provides richer actions in .rs files
+          vim.keymap.set('n', '<leader>ca', function()
+            local clients = vim.lsp.get_clients({ bufnr = 0, name = "rust_analyzer" })
+            if #clients > 0 then
+              vim.cmd.RustLsp("codeAction")
+            else
+              vim.lsp.buf.code_action()
+            end
+          end, { buffer = event.buf, desc = "Code action" })
+          vim.keymap.set("n", "<leader>pn", "<cmd>Navbuddy<cr>", { buffer = event.buf, desc = "Code structure (Navbuddy)" })
           -- vim.keymap.set({ 'n', 'x' }, '<F3>', '<cmd>lua vim.lsp.buf.format({async = true})<cr>', opts)
           -- vim.keymap.set('n', '<F4>', '<cmd>lua vim.lsp.buf.code_action()<cr>', opts)
         end,
