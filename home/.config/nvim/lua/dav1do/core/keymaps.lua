@@ -7,8 +7,8 @@ vim.g.mapleader = " "
 -- General Keymaps -------------------
 
 -- use jk to exit insert mode
-vim.keymap.set("i", "jk", "<ESC>", { desc = "Exit insert mode with jk" })
-vim.keymap.set("i", "kj", "<ESC>", { desc = "Exit insert mode with kj" })
+-- vim.keymap.set("i", "jk", "<ESC>", { desc = "Exit insert mode with jk" })
+-- vim.keymap.set("i", "kj", "<ESC>", { desc = "Exit insert mode with kj" })
 -- clear search highlights
 vim.keymap.set("n", "<leader>nh", ":nohl<CR>", { desc = "Clear search highlights" })
 
@@ -23,14 +23,23 @@ vim.keymap.set("n", "x", '"_x')
 vim.keymap.set("n", "<leader>sv", "<C-w>v", { desc = "Split window vertically" })     -- split window vertically
 vim.keymap.set("n", "<leader>sh", "<C-w>s", { desc = "Split window horizontally" })   -- split window horizontally
 vim.keymap.set("n", "<leader>se", "<C-w>=", { desc = "Make splits equal size" })      -- make split windows equal width & height
-vim.keymap.set("n", "<leader>sx", "<cmd>close<CR>", { desc = "Close current split" }) -- close current split window
-vim.keymap.set("n", "<leader>bx", "<cmd>close<CR>", { desc = "Close current split" }) -- close current split window
+vim.keymap.set("n", "<leader>sd", "<cmd>close<CR>", { desc = "Close current split" }) -- close current split window
+vim.keymap.set("n", "<leader>sD", "<C-w>o", { desc = "Close all other splits" })     -- keep only current window
+
+-- tab (workspace) management
+vim.keymap.set("n", "<leader>tn", "<cmd>tabnew<cr>",   { desc = "New tab" })
+vim.keymap.set("n", "<leader>tq", "<cmd>tabclose<cr>", { desc = "Close tab" })
+vim.keymap.set("n", "]t", "<cmd>tabnext<cr>",     { desc = "Next tab" })
+vim.keymap.set("n", "[t", "<cmd>tabprevious<cr>", { desc = "Prev tab" })
 
 vim.keymap.set("n", "<leader>ml", "<C-w>L", { desc = "Move window to right split" })
 vim.keymap.set("n", "<leader>mj", "<C-w>J", { desc = "Move window to bottom split" })
 vim.keymap.set("n", "<leader>mk", "<C-w>K", { desc = "Move window to top split" })
 vim.keymap.set("n", "<leader>mh", "<C-w>H", { desc = "Move window to left split" })
 
+-- move between buffers. overwrites H/L cursor to top/bottom, but with `s` mappings not really needed
+vim.keymap.set("n", "<S-h>", "<cmd>bprevious<cr>", { desc = "Prev Buffer" })
+vim.keymap.set("n", "<S-l>", "<cmd>bnext<cr>", { desc = "Next Buffer" })
 -- Move to window using the <ctrl> hjkl keys (not necessary with tmux plugin)
 -- vim.keymap.set("n", "<C-h>", "<C-w>h", { desc = "Go to Left Window", remap = true })
 -- vim.keymap.set("n", "<C-j>", "<C-w>j", { desc = "Go to Lower Window", remap = true })
@@ -53,8 +62,8 @@ vim.api.nvim_create_autocmd("TermOpen", {
   end,
 })
 
--- psql in a bottom split, using $DATABASE_URL if set
-vim.keymap.set("n", "<leader>tq", function()
+-- psql in a bottom split, using $DATABASE_URL if set (<leader>dq — under debug/db)
+vim.keymap.set("n", "<leader>dq", function()
   local url = os.getenv("DATABASE_URL")
   local cmd = url and ("psql " .. url) or "psql"
   vim.cmd("botright split | terminal " .. cmd)
@@ -89,9 +98,11 @@ vim.keymap.set("v", "<A-k>", ":<C-u>execute \"'<,'>move '<-\" . (v:count1 + 1)<c
 vim.keymap.set("v", "J", ":<C-u>execute \"'<,'>move '>+\" . v:count1<cr>gv=gv", { desc = "Move Down" })
 vim.keymap.set("v", "K", ":<C-u>execute \"'<,'>move '<-\" . (v:count1 + 1)<cr>gv=gv", { desc = "Move Up" })
 
--- buffers: use <leader>pb for fuzzy picker, <C-^> to toggle last two files
+-- buffers: use <leader>pb for fuzzy picker, <leader><leader> to toggle last two files
 -- H/L restored as vim built-ins (top/bottom of visible screen)
 -- <leader>bd is handled by snacks.lua (context-aware: dadbod, tool buffers, etc.)
+vim.keymap.set("n", "<leader><leader>", "<C-^>", { desc = "Switch to last buffer" })
+
 vim.keymap.set("n", "<leader>fs", function()
   vim.cmd("enew")
   vim.bo.buftype = "nofile"
@@ -150,7 +161,7 @@ vim.api.nvim_create_autocmd("RecordingLeave", {
 vim.keymap.set("i", "<C-c>", "<Esc>")
 
 -- replace the word under cursor in entire file with whatever you type
-vim.keymap.set("n", "<leader>ra", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]])
+vim.keymap.set("n", "<leader>ra", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]], { desc = "Replace word under cursor in file" })
 -- vim.keymap.set("n", "<leader>x", "<cmd>!chmod +x %<CR>", { silent = true }) -- set current file as exectuable
 
 -- keep visual selection when indenting
@@ -163,9 +174,10 @@ vim.keymap.set("n", "<leader>uw", function()
   vim.wo.linebreak = vim.wo.wrap -- word-boundary breaks when wrap is on
 end, { desc = "Toggle wrap" })
 
--- reload plugins
-vim.keymap.set("n", "<leader>vpp", "<cmd>e ~/.config/nvim/lua/dav1do/init.lua<CR>")
-vim.keymap.set("n", "<leader>vr", "<cmd>source %<CR>", { desc = "Reload current file" })
+vim.keymap.set("n", "<leader>fn", "<cmd>enew<cr>", { desc = "New file" })
+vim.keymap.set("n", "<leader>ws", ":saveas ", { desc = "Save as" })
+
+vim.keymap.set("n", "<leader>rr", "<cmd>source %<CR>", { desc = "Reload current file" })
 
 -- file mgmt
 -- vim.keymap.set("n", "<leader><leader>", function()

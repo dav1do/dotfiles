@@ -2,6 +2,7 @@ return {
   {
     "tpope/vim-dadbod",
     lazy = true,
+    ft = { "sql", "mysql", "plsql" },
   },
   {
     "kristijanhusak/vim-dadbod-ui",

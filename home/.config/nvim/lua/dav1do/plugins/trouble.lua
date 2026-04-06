@@ -46,7 +46,7 @@ return {
     -- Auto-open symbols sidebar on first LspAttach in a session.
     -- After that, pinned=true keeps it following focus automatically.
     -- Closing it manually with <leader>ts keeps it closed for the rest of the session.
-    local symbols_opened = false
+    local symbols_opened = true --TODO: disabling auto-open symbols for now
     vim.api.nvim_create_autocmd("LspAttach", {
       callback = function()
         if symbols_opened then return end

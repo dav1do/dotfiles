@@ -62,6 +62,10 @@ return
       -- Guard: if focus is in a sidebar/panel, wincmd p returns to the code window first so
       -- the horizontal split opens below code, not below the sidebar.
       { "<leader>ce", function()
+          if #vim.lsp.get_clients({ bufnr = 0, name = "rust_analyzer" }) == 0 then
+            vim.notify("rust-analyzer not attached", vim.log.levels.WARN)
+            return
+          end
           if vim.bo.buftype ~= "" then vim.cmd("wincmd p") end
           vim.cmd.RustLsp({ "renderDiagnostic", "cycle" })
         end, desc = "[rust] Next diagnostic (cargo-style)" },

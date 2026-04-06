@@ -5,6 +5,8 @@ alias ll='ls -al'
 alias la='ls -A'
 alias l='ls -CF'
 
+alias lg='lazygit'
+
 alias locate='mdfind' # spotlight on mac
 
 alias lhr='lefthook run'

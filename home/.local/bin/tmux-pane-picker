@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# tmux pane picker — fuzzy find and switch to any pane
+# Usage: tmux-pane-picker [--query STRING]
+
+query=""
+label=" panes "
+prompt="🔍  "
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --query) query="$2"; label=" $2 sessions "; prompt="🤖  "; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+result=$(tmux list-panes -a \
+  -F '#{pane_id}|#{session_name}/#{window_name}/#{pane_index}|#{pane_current_command}|#{b:pane_current_path}|#{pane_pid}' \
+  | while IFS='|' read -r pane_id location cmd dir pid; do
+      kids=$(pgrep -P "$pid" 2>/dev/null | head -5 | xargs -I{} ps -o comm= -p {} 2>/dev/null | paste -sd '>' -)
+      if [ -n "$kids" ]; then cmd="$cmd>$kids"; fi
+      printf '%s \033[36m%s\033[0m \033[33m[%s]\033[0m \033[2m%s\033[0m\n' "$pane_id" "$location" "$cmd" "$dir"
+    done \
+  | fzf --ansi --border-label "$label" --prompt "$prompt" \
+    --with-nth=2.. --no-sort ${query:+--query "$query"} \
+    --preview 'tmux capture-pane -e -p -t {1} | tail -$FZF_PREVIEW_LINES')
+
+[ -n "$result" ] && tmux switch-client -t "$(echo "$result" | awk '{print $1}')"

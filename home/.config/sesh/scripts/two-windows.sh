@@ -15,5 +15,4 @@ tmux select-layout even-horizontal
 
 # Go back to editor window and start nvim (must be last, it blocks)
 tmux select-window -t 0
-nvim .
 

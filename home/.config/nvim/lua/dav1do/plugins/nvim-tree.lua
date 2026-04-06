@@ -10,12 +10,53 @@ return {
     require("nvim-tree").setup({
       on_attach = function(bufnr)
         local api = require("nvim-tree.api")
+        local function map(key, action, desc)
+          vim.keymap.set("n", key, action, { buffer = bufnr, nowait = true, desc = desc })
+        end
+
         -- apply all default nvim-tree keymaps first
         api.config.mappings.default_on_attach(bufnr)
+
         -- q closes tree (consistent with all other tool panels)
-        vim.keymap.set("n", "q", api.tree.close, { buffer = bufnr, nowait = true, desc = "Close tree" })
+        map("q", api.tree.close, "Close tree")
+        -- ? shows tree help (newer nvim-tree moved this to g?, so re-bind explicitly)
+        map("?", api.tree.toggle_help, "Help")
         -- remove nvim-tree's s (system open) so Flash jump works inside the tree
         pcall(vim.keymap.del, "n", "s", { buffer = bufnr })
+
+        -- n = new file/dir (alias for a; more intuitive than "add")
+        map("n", api.fs.create, "New file/dir")
+
+        -- gs = show git-changed files via telescope picker, then reveal in tree
+        -- (bridges <leader>ps workflow into the tree; uses telescope-ui-select)
+        map("gs", function()
+          local changed = vim.fn.systemlist("git diff --name-only HEAD 2>/dev/null")
+          local untracked = vim.fn.systemlist("git ls-files --others --exclude-standard 2>/dev/null")
+          for _, f in ipairs(untracked) do table.insert(changed, f) end
+          if #changed == 0 then
+            vim.notify("No changed files", vim.log.levels.INFO, { title = "nvim-tree" })
+            return
+          end
+          vim.ui.select(changed, { prompt = "Git changed files" }, function(choice)
+            if choice then
+              api.tree.find_file({ buf = vim.fn.fnamemodify(choice, ":p"), open = true, focus = true })
+            end
+          end)
+        end, "Git changed: find in tree")
+
+        -- Key file-op reference (all defaults, listed here for which-key visibility):
+        --   r  = rename / move (edit the full path to move across dirs — this is your `mv`)
+        --   c  = copy (mark), x = cut (mark), p = paste at current dir — this is your `cp`
+        --   d  = delete
+        --   y / Y / gy = copy name / relative path / absolute path
+        --   f / F = live filter / clear filter
+        --   H  = toggle hidden/dotfiles
+        --   I  = toggle git-ignored files
+        --   W / E = collapse all / expand all
+        --   m  = bookmark node (bmv = move bookmarked)
+        --   -  = navigate up to parent dir
+        --   <Tab> = preview without opening
+        --   <C-v> / <C-x> / <C-t> = open in vsplit / hsplit / tab
       end,
       view = {
         width = 35,
@@ -90,9 +131,25 @@ return {
       end
       api.tree.toggle({ focus = false, find_file = false })
     end, { desc = "Toggle file explorer" })
-    keymap.set("n", "<leader>ee", "<cmd>NvimTreeFindFileToggle<CR>", { desc = "Toggle file explorer on current file" }) -- toggle file explorer on current file
-    keymap.set("n", "<leader>ec", "<cmd>NvimTreeCollapse<CR>", { desc = "Collapse file explorer" })                     -- collapse file explorer
-    keymap.set("n", "<leader>er", "<cmd>NvimTreeRefresh<CR>", { desc = "Refresh file explorer" })                       -- refresh file explorer
+    keymap.set("n", "<leader>ee", "<cmd>NvimTreeFindFileToggle<CR>", { desc = "Toggle file explorer on current file" })
+    keymap.set("n", "<leader>ec", "<cmd>NvimTreeCollapse<CR>",        { desc = "Collapse file explorer" })
+    keymap.set("n", "<leader>er", "<cmd>NvimTreeRefresh<CR>",         { desc = "Refresh file explorer" })
+    -- git-changed: pick from changed files → reveal in tree (<leader>ps equivalent for the explorer)
+    keymap.set("n", "<leader>eg", function()
+      local changed = vim.fn.systemlist("git diff --name-only HEAD 2>/dev/null")
+      local untracked = vim.fn.systemlist("git ls-files --others --exclude-standard 2>/dev/null")
+      for _, f in ipairs(untracked) do table.insert(changed, f) end
+      if #changed == 0 then
+        vim.notify("No changed files", vim.log.levels.INFO, { title = "nvim-tree" })
+        return
+      end
+      local api = require("nvim-tree.api")
+      vim.ui.select(changed, { prompt = "Git changed files" }, function(choice)
+        if choice then
+          api.tree.find_file({ buf = vim.fn.fnamemodify(choice, ":p"), open = true, focus = false })
+        end
+      end)
+    end, { desc = "Explorer: git changed files" })
 
     -- TODO: review because it was great until it broke everyting on the `vim.api.nvim_cmd({ cmd = 'qall' }, {})` call
     -- Make :bd and :q behave as usual when tree is visible

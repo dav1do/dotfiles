@@ -1,0 +1,328 @@
+#!/usr/bin/env bash
+# claude-control — command & control for Claude Code tmux panes
+# Usage:
+#   claude-control              — fzf picker with switch/dispatch/spawn/broadcast
+#   claude-control summary      — one-line status for tmux status bar
+#   claude-control send ID MSG  — send prompt to a specific pane
+#   claude-control _dispatch ID TYPE — (internal, called by fzf execute)
+#   claude-control _broadcast   — (internal, called by fzf execute)
+#   claude-control _spawn       — (internal, called by fzf execute)
+#   claude-control _list        — (internal, raw pane list for fzf reload)
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Process tree helpers
+# ---------------------------------------------------------------------------
+
+# Recursively find the PID of a claude process in the tree. Returns first match.
+find_claude_pid() {
+  local pid="$1"
+  local children
+  children=$(pgrep -P "$pid" 2>/dev/null || true)
+  for child in $children; do
+    local args
+    args=$(ps -o args= -p "$child" 2>/dev/null || true)
+    if [[ "$args" == *claude* ]]; then
+      echo "$child"
+      return 0
+    fi
+    local result
+    result=$(find_claude_pid "$child")
+    if [[ -n "$result" ]]; then
+      echo "$result"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Check if any descendant process matches "claude"
+has_claude_descendant() {
+  find_claude_pid "$1" >/dev/null 2>&1
+}
+
+# ---------------------------------------------------------------------------
+# Status detection
+# ---------------------------------------------------------------------------
+
+# Detect if a Claude pane is idle (at prompt) or busy (running tools / thinking).
+# Uses two signals:
+#   1. Process tree: if claude's node process has bash/sh children → running tools → busy
+#   2. Capture-pane: look for prompt indicators in last lines
+detect_status() {
+  local pane_id="$1"
+  local pane_pid="$2"
+
+  # Try process tree first: if claude has tool subprocesses, it's busy
+  local claude_pid
+  claude_pid=$(find_claude_pid "$pane_pid" 2>/dev/null || true)
+  if [[ -n "$claude_pid" ]]; then
+    local tool_children
+    tool_children=$(pgrep -P "$claude_pid" 2>/dev/null | while read -r cpid; do
+      local cmd
+      cmd=$(ps -o comm= -p "$cpid" 2>/dev/null || true)
+      # bash/sh children are tool invocations
+      if [[ "$cmd" == "bash" || "$cmd" == "sh" || "$cmd" == "zsh" ]]; then
+        echo "$cpid"
+      fi
+    done || true)
+    if [[ -n "$tool_children" ]]; then
+      echo "busy"
+      return
+    fi
+  fi
+
+  # Fall back to capture-pane heuristics
+  local last_lines
+  last_lines=$(tmux capture-pane -p -t "$pane_id" -S -5 2>/dev/null || true)
+
+  # Idle indicators: prompt area visible
+  if echo "$last_lines" | grep -qiE 'Interrupted|What should Claude do|accept edits on|shift\+tab to cycle'; then
+    echo "idle"
+    return
+  fi
+
+  # If we can see the status bar (cost:$) in the last 2 lines, likely at prompt
+  if echo "$last_lines" | tail -3 | grep -qE 'cost:\$'; then
+    echo "idle"
+    return
+  fi
+
+  echo "busy"
+}
+
+# ---------------------------------------------------------------------------
+# Pane discovery
+# ---------------------------------------------------------------------------
+
+# Output format: pane_id type status_icon status location dir
+#   type: "direct" (standalone) or "nvim" (hosted inside neovim, read-only)
+#   Fields 1-2 hidden in fzf via --with-nth=3..
+list_claude_panes() {
+  tmux list-panes -a \
+    -F '#{pane_id}|#{session_name}/#{window_name}/#{pane_index}|#{b:pane_current_path}|#{pane_pid}|#{pane_current_command}' \
+  | while IFS='|' read -r pane_id location dir pid fg_cmd; do
+      if ! has_claude_descendant "$pid"; then
+        continue
+      fi
+
+      # Foreground command from tmux tells us if this is nvim-hosted
+      local pane_type="direct"
+      if [[ "$fg_cmd" == *nvim* || "$fg_cmd" == *vim* ]]; then
+        pane_type="nvim"
+      fi
+
+      local status
+      status=$(detect_status "$pane_id" "$pid")
+
+      local status_icon type_tag
+      if [[ "$status" == "idle" ]]; then
+        status_icon="\033[32m●\033[0m"
+      else
+        status_icon="\033[33m◉\033[0m"
+      fi
+
+      if [[ "$pane_type" == "nvim" ]]; then
+        type_tag="\033[2m[nvim:RO]\033[0m "
+      else
+        type_tag=""
+      fi
+
+      printf '%s %s %b %s %b\033[36m%s\033[0m \033[2m%s\033[0m\n' \
+        "$pane_id" "$pane_type" "$status_icon" "$status" "$type_tag" "$location" "$dir"
+    done
+}
+
+# ---------------------------------------------------------------------------
+# Status bar summary
+# ---------------------------------------------------------------------------
+
+cmd_summary() {
+  local panes
+  panes=$(list_claude_panes 2>/dev/null || true)
+  if [[ -z "$panes" ]]; then
+    echo ""
+    return
+  fi
+  local total=0 busy=0
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    total=$((total + 1))
+    if echo "$line" | grep -q ' busy '; then
+      busy=$((busy + 1))
+    fi
+  done <<< "$panes"
+  if [[ "$total" -eq 0 ]]; then
+    echo ""
+  else
+    echo "[C: $busy/$total]"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Direct send (scriptable)
+# ---------------------------------------------------------------------------
+
+cmd_send() {
+  local pane_id="${1:?Usage: claude-control send <pane_id> <prompt>}"
+  shift
+  local prompt="${*:?Usage: claude-control send <pane_id> <prompt>}"
+  tmux send-keys -t "$pane_id" "$prompt" Enter
+}
+
+# ---------------------------------------------------------------------------
+# Internal commands (called by fzf execute bindings)
+# ---------------------------------------------------------------------------
+
+cmd_dispatch() {
+  local pane_id="$1"
+  local pane_type="$2"
+
+  if [[ "$pane_type" == "nvim" ]]; then
+    echo ""
+    echo "  This Claude instance is inside neovim (read-only)."
+    echo "  Switch to the nvim pane and interact directly."
+    echo ""
+    read -r -n 1 -p "  Press any key..." || true
+    return
+  fi
+
+  echo ""
+  local prompt=""
+  # Ctrl-C aborts the read, || true prevents set -e from killing us
+  read -r -e -p "  Send to $pane_id > " prompt || true
+  if [[ -n "$prompt" ]]; then
+    tmux send-keys -t "$pane_id" "$prompt" Enter
+    echo "  Sent."
+    sleep 0.5
+  fi
+}
+
+cmd_broadcast() {
+  local panes
+  panes=$(list_claude_panes 2>/dev/null || true)
+  if [[ -z "$panes" ]]; then
+    echo "  No panes found."
+    read -r -n 1 -p "  Press any key..." || true
+    return
+  fi
+
+  # Only broadcast to direct (non-nvim) panes
+  local targets
+  targets=$(echo "$panes" | awk '$2 == "direct"' || true)
+  local count
+  count=$(echo "$targets" | grep -c '.' || true)
+
+  if [[ "$count" -eq 0 ]]; then
+    echo ""
+    echo "  No dispatchable panes (all are nvim-hosted)."
+    read -r -n 1 -p "  Press any key..." || true
+    return
+  fi
+
+  echo ""
+  echo "  Broadcast to $count direct pane(s):"
+  echo "$targets" | awk '{printf "    %s %s\n", $1, $6}'
+  echo ""
+  local prompt=""
+  read -r -e -p "  Broadcast > " prompt || true
+  if [[ -z "$prompt" ]]; then
+    return
+  fi
+
+  local confirm=""
+  read -r -n 1 -p "  Send to all $count panes? (y/n) " confirm || true
+  echo
+  if [[ "$confirm" != "y" ]]; then
+    return
+  fi
+
+  while IFS= read -r line; do
+    local pid
+    pid=$(echo "$line" | awk '{print $1}')
+    tmux send-keys -t "$pid" "$prompt" Enter
+  done <<< "$targets"
+
+  echo "  Broadcast sent."
+  sleep 0.5
+}
+
+cmd_spawn() {
+  echo ""
+  local dir=""
+  if command -v fd &>/dev/null; then
+    dir=$(fd -H -d 3 -t d -E .Trash -E node_modules -E .git -E target . ~ \
+      | fzf --prompt '  directory: ' --border-label ' spawn claude ' \
+      || true)
+  fi
+
+  if [[ -z "${dir:-}" ]]; then
+    read -r -e -p "  Directory: " dir || true
+  fi
+
+  if [[ -z "$dir" || ! -d "$dir" ]]; then
+    echo "  Cancelled."
+    sleep 0.3
+    return
+  fi
+
+  local label
+  label=$(basename "$dir")
+  local custom_label=""
+  read -r -e -p "  Name [$label]: " custom_label || true
+  label="${custom_label:-$label}"
+
+  tmux split-window -h -c "$dir" "claude --name '$label'"
+}
+
+# ---------------------------------------------------------------------------
+# fzf picker
+# ---------------------------------------------------------------------------
+
+cmd_picker() {
+  local panes
+  panes=$(list_claude_panes)
+
+  if [[ -z "$panes" ]]; then
+    echo "No Claude Code panes found."
+    local answer=""
+    read -r -n 1 -p "Spawn a new instance? (y/n) " answer || true
+    echo
+    if [[ "$answer" == "y" ]]; then
+      cmd_spawn
+    fi
+    return
+  fi
+
+  local self
+  self=$(realpath "$0")
+
+  echo "$panes" \
+    | fzf --ansi \
+      --border-label ' claude control ' \
+      --prompt '  ' \
+      --header 'enter:switch | ^s:send | ^n:new | ^b:broadcast | ^r:refresh' \
+      --with-nth=3.. \
+      --no-sort \
+      --preview 'tmux capture-pane -e -p -t {1} | tail -$FZF_PREVIEW_LINES' \
+      --bind "ctrl-s:execute($self _dispatch {1} {2})" \
+      --bind "ctrl-n:execute($self _spawn)+reload($self _list)" \
+      --bind "ctrl-b:execute($self _broadcast)" \
+      --bind "ctrl-r:reload($self _list)" \
+      --bind 'enter:become(tmux switch-client -t {1})'
+}
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+case "${1:-}" in
+  summary)    cmd_summary ;;
+  send)       shift; cmd_send "$@" ;;
+  _dispatch)  shift; cmd_dispatch "$@" ;;
+  _broadcast) cmd_broadcast ;;
+  _spawn)     cmd_spawn ;;
+  _list)      list_claude_panes ;;
+  *)          cmd_picker ;;
+esac

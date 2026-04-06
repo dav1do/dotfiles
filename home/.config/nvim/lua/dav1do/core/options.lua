@@ -5,7 +5,7 @@ local opt = vim.opt
 opt.grepprg = "rg --vimgrep"
 
 -- line numbers
-opt.relativenumber = true -- show relative line numbers
+-- opt.relativenumber = true -- show relative line numbers
 opt.number = true         -- shows absolute line number on cursor line (when relative number is on)
 opt.ruler = false
 opt.cursorline = true
@@ -18,7 +18,8 @@ opt.expandtab = true   -- spaces over tabs
 opt.smartindent = true -- Insert indents automatically
 
 -- line wrapping
-opt.wrap = false     -- disable line wrapping
+opt.wrap = true      -- enable line wrapping (toggle with <leader>uw)
+opt.linebreak = true -- break at word boundaries, not mid-word
 opt.splitkeep = "screen" -- default "cursor", trying to play nice with bufferline
 
 -- opt.shortmess:append({ W = true, I = true, c = true, C = true }) -- suppress some messages
@@ -70,12 +71,20 @@ opt.fillchars = {
   eob = " ",
 }
 opt.smoothscroll = true
--- opt.foldmethod = "expr"
--- opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
--- -- opt.foldexpr = "v:lua.require'dav1do.util'.foldexpr()"
--- opt.foldlevel = 99
--- opt.foldlevelstart = 3
--- opt.foldtext = "" -- sytanx highlight first line
+opt.foldmethod = "expr"
+opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+opt.foldlevel = 99        -- don't auto-close folds while editing
+opt.foldlevelstart = 2    -- open with top-level structure + impl visible, bodies folded
+opt.foldtext = ""         -- use syntax-highlighted first line as fold label
+opt.foldcolumn = "1"      -- dedicated column for fold indicators (fixes line numbers on folds)
 
 opt.winminwidth = 5   -- Minimum window width
 opt.equalalways = false -- Don't resize all windows when splits open/close
+
+-- .env files: set commentstring so gcc works
+vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
+  pattern = { ".env", "*.env", ".env.*" },
+  callback = function()
+    vim.bo.commentstring = "# %s"
+  end,
+})

@@ -15,7 +15,7 @@ return {
       keymaps = {
         toggle = {
           normal = "<leader>cc",
-          terminal = "<C-o>",
+          -- terminal = "<C-o>",
           variants = {
             continue = "<leader>cC",
             verbose = "<leader>cV",

@@ -1,0 +1,16 @@
+[credential]
+        username = dav1do
+	helper = 
+	helper = /usr/local/share/gcm-core/git-credential-manager
+[user]
+        name = David Estes
+        email = 5317198+dav1do@users.noreply.github.com 
+	signingkey = C3EACD65B4D7E164 
+[commmit]
+        gpgsign = true
+[commit]
+	gpgsign = true
+[tag]
+	gpgSign = true
+[credential "https://dev.azure.com"]
+	useHttpPath = true

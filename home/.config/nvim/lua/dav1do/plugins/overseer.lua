@@ -70,7 +70,7 @@ local function find_node_script(root_dir, kind, candidates)
   return nil
 end
 
-local function overseer_project_cmd(kind)
+local function overseer_project_cmd(kind, to_trouble)
   local cwd = vim.uv.cwd()
   local root = vim.fs.find(
     { "Cargo.toml", "pnpm-lock.yaml", "yarn.lock", "bun.lockb", "package.json" },
@@ -89,10 +89,11 @@ local function overseer_project_cmd(kind)
   if filename == "Cargo.toml" then
     -- Rust: check = cargo check, lint = clippy (read-only linting, not auto-fix)
     local cmds = {
-      check = { "cargo", { "check", "--workspace", "--all-targets", "--all-features" } },
-      lint  = { "cargo", { "clippy", "--workspace", "--all-targets", "--all-features" } },
-      build = { "cargo", { "build" } },
-      test  = { "cargo", { "test" } },
+      check      = { "cargo", { "check", "--workspace", "--all-targets", "--all-features" } },
+      lint       = { "cargo", { "clippy", "--workspace", "--all-targets", "--all-features" } },
+      long_check = { "cargo", { "clippy", "--workspace", "--all-targets", "--all-features", "--", "-D", "warnings" } },
+      build      = { "cargo", { "build" } },
+      test       = { "cargo", { "test" } },
     }
     if cmds[kind] then cmd, args = cmds[kind][1], cmds[kind][2] end
 
@@ -138,13 +139,23 @@ local function overseer_project_cmd(kind)
     return
   end
 
+  local components = to_trouble
+    and { "default", { "on_output_quickfix", open = false, set_diagnostics = true } }
+    or  nil
+
   local task = overseer.new_task({
     name = cmd .. " " .. table.concat(args, " "),
     cmd = cmd,
     args = args,
     cwd = root_dir,
+    components = components,
   })
   task:subscribe("on_complete", function(t)
+    if to_trouble then
+      vim.schedule(function()
+        require("trouble").open({ mode = "diagnostics", focus = false })
+      end)
+    end
     if t.status ~= "FAILURE" then
       vim.defer_fn(function() t:dispose() end, 1000)
     end
@@ -251,13 +262,14 @@ return {
     },
     -- stylua: ignore
     keys = {
-      { "<leader>ow", "<cmd>OverseerToggle<cr>",      desc = "Task list" },
-      { "<leader>oo", overseer_run_picker,                desc = "Run task (picker)" },
+      { "<leader>tp", "<cmd>OverseerToggle<cr>",      desc = "Task list panel" },
+      { "<leader>pt", overseer_run_picker,             desc = "Run task (picker)" },
       { "<leader>oq", "<cmd>OverseerTaskAction<cr>",    desc = "Task action" },
       { "<leader>ob", function() overseer_project_cmd("build") end, desc = "Project build" },
       { "<leader>ot", function() overseer_project_cmd("test") end,  desc = "Project test" },
       { "<leader>oc", function() overseer_project_cmd("check") end, desc = "Project check" },
-      { "<leader>ol", function() overseer_project_cmd("lint") end, desc = "Project lint (clippy)" },
+      { "<leader>ol", function() overseer_project_cmd("lint") end,              desc = "Project lint (clippy)" },
+      { "<leader>oC", function() overseer_project_cmd("long_check", true) end, desc = "Long check → Trouble" },
     },
   },
   {

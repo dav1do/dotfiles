@@ -13,7 +13,7 @@ return {
   },
   opts = {
     formatters_by_ft = {
-      json = { "jq" },
+      json = { "prettier" },
       lua = { "stylua" },
       markdown = { "prettier" },
       python = { "ruff_format" },

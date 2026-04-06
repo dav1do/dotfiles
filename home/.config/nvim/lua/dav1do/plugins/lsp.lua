@@ -10,7 +10,7 @@ end
 
 return {
   {
-    'williamboman/mason.nvim',
+    "williamboman/mason.nvim",
     lazy = false,
     config = function()
       require("mason").setup()
@@ -28,11 +28,11 @@ return {
     end,
   },
   {
-    'hrsh7th/nvim-cmp',
-    event = 'InsertEnter',
+    "hrsh7th/nvim-cmp",
+    event = "InsertEnter",
     dependencies = {
       "hrsh7th/cmp-buffer", -- source for text in buffer
-      "hrsh7th/cmp-path",   -- source for file system paths
+      "hrsh7th/cmp-path", -- source for file system paths
       {
         "L3MON4D3/LuaSnip",
         -- follow latest release.
@@ -42,9 +42,9 @@ return {
       },
       "hrsh7th/cmp-nvim-lsp",
       "hrsh7th/cmp-nvim-lua",
-      "saadparwaiz1/cmp_luasnip",     -- for autocompletion
+      "saadparwaiz1/cmp_luasnip", -- for autocompletion
       "rafamadriz/friendly-snippets", -- useful snippets
-      "onsails/lspkind.nvim",         -- vs-code like pictograms
+      "onsails/lspkind.nvim", -- vs-code like pictograms
       -- "zbirenbaum/copilot.lua",
       -- "zbirenbaum/copilot-cmp",
     },
@@ -57,8 +57,8 @@ return {
 
       cmp.setup({
         auto_brackets = {
-          "rust"
-        },                                       -- configure any filetype to auto add brackets
+          "rust",
+        }, -- configure any filetype to auto add brackets
         completion = {
           completeopt = "menu,menuone,noinsert", --,noselect
         },
@@ -72,7 +72,7 @@ return {
           ["<C-u>"] = cmp.mapping.scroll_docs(-4),
           ["<C-d>"] = cmp.mapping.scroll_docs(4),
           ["<C-Space>"] = cmp.mapping.complete(), -- show completion suggestions
-          ["<C-q>"] = cmp.mapping.abort(),        -- close completion window
+          ["<C-q>"] = cmp.mapping.abort(), -- close completion window
           ["<CR>"] = cmp.mapping.confirm({ select = true }),
         }),
         -- sources for autocompletion
@@ -80,8 +80,8 @@ return {
           -- { name = "copilot" },
           { name = "nvim_lsp" },
           { name = "luasnip" }, -- snippets
-          { name = "buffer" },  -- text within current buffer
-          { name = "path" },    -- file system paths
+          { name = "buffer" }, -- text within current buffer
+          { name = "path" }, -- file system paths
         }, {
           { name = "buffer" },
         }),
@@ -99,16 +99,16 @@ return {
         },
         sorting = defaults.sorting,
       })
-    end
+    end,
   },
   {
-    'neovim/nvim-lspconfig',
-    cmd = { 'LspInfo', 'LspInstall', 'LspStart' },
-    event = { 'BufReadPre', 'BufNewFile' },
+    "neovim/nvim-lspconfig",
+    cmd = { "LspInfo", "LspInstall", "LspStart" },
+    event = { "BufReadPre", "BufNewFile" },
     dependencies = {
-      { 'hrsh7th/cmp-nvim-lsp' },
-      { 'williamboman/mason.nvim' },
-      { 'williamboman/mason-lspconfig.nvim' },
+      { "hrsh7th/cmp-nvim-lsp" },
+      { "williamboman/mason.nvim" },
+      { "williamboman/mason-lspconfig.nvim" },
     },
     opts = function()
       ---@class PluginLspOpts
@@ -206,8 +206,8 @@ return {
                   propertyDeclarationTypes = { enabled = true },
                   variableTypes = { enabled = false },
                 },
-              }
-            }
+              },
+            },
           },
           lua_ls = {
             -- mason = false, -- set to false if you don't want this server to be installed with mason
@@ -247,20 +247,17 @@ return {
     config = function(_, opts)
       vim.diagnostic.config(vim.deepcopy(opts.diagnostics))
 
-      local lsp_defaults = require('lspconfig').util.default_config
+      local lsp_defaults = require("lspconfig").util.default_config
 
       -- Add cmp_nvim_lsp capabilities settings to lspconfig
       -- This should be executed before you configure any language server
-      lsp_defaults.capabilities = vim.tbl_deep_extend(
-        'force',
-        lsp_defaults.capabilities,
-        require('cmp_nvim_lsp').default_capabilities()
-      )
+      lsp_defaults.capabilities =
+        vim.tbl_deep_extend("force", lsp_defaults.capabilities, require("cmp_nvim_lsp").default_capabilities())
 
       -- LspAttach is where you enable features that only work
       -- if there is a language server active in the file
-      vim.api.nvim_create_autocmd('LspAttach', {
-        desc = 'LSP actions',
+      vim.api.nvim_create_autocmd("LspAttach", {
+        desc = "LSP actions",
         callback = function(event)
           local buf = { buffer = event.buf }
 
@@ -274,8 +271,8 @@ return {
 
           -- K: cargo-style renderDiagnostic for Rust (full context spans), plain float otherwise.
           -- Dedup/positioning is handled by the TermOpen autocmd in rust.lua.
-          vim.keymap.set('n', 'K', function()
-            local lnum = vim.fn.line('.') - 1
+          vim.keymap.set("n", "K", function()
+            local lnum = vim.fn.line(".") - 1
             local diags = vim.diagnostic.get(0, { lnum = lnum })
             if #diags > 0 and #vim.lsp.get_clients({ bufnr = 0, name = "rust_analyzer" }) > 0 then
               vim.cmd.RustLsp({ "renderDiagnostic", "current" })
@@ -285,18 +282,53 @@ return {
               vim.lsp.buf.hover()
             end
           end, { buffer = event.buf, desc = "Hover / diagnostic float" })
-          vim.keymap.set('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<cr>', buf)
-          vim.keymap.set('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<cr>', buf)
-          vim.keymap.set('n', 'gi', '<cmd>lua vim.lsp.buf.implementation()<cr>', buf)
-          vim.keymap.set('n', 'go', '<cmd>lua vim.lsp.buf.type_definition()<cr>', buf)
+          vim.keymap.set(
+            "n",
+            "gd",
+            "<cmd>lua vim.lsp.buf.definition()<cr>",
+            { buffer = event.buf, desc = "[lsp] Definition" }
+          )
+          vim.keymap.set(
+            "n",
+            "gD",
+            "<cmd>lua vim.lsp.buf.declaration()<cr>",
+            { buffer = event.buf, desc = "[lsp] Declaration" }
+          )
+          vim.keymap.set(
+            "n",
+            "gi",
+            "<cmd>lua vim.lsp.buf.implementation()<cr>",
+            { buffer = event.buf, desc = "[lsp] Implementation" }
+          )
+          vim.keymap.set(
+            "n",
+            "go",
+            "<cmd>lua vim.lsp.buf.type_definition()<cr>",
+            { buffer = event.buf, desc = "[lsp] Type definition" }
+          )
           -- note: gr removed — Neovim 0.11+ uses gr* prefix for built-in LSP keymaps
           -- (grr=references, grn=rename, gra=code_action, gri=impl, grt=type_def, grx=codelens)
           -- gR still works for the Trouble lsp_references panel
-          vim.keymap.set('n', 'gR', '<cmd>Trouble lsp_references toggle<cr>', buf)
-          vim.keymap.set('n', 'gS', '<cmd>lua vim.lsp.buf.signature_help()<cr>', buf)
-          vim.keymap.set('n', '<F2>', '<cmd>lua vim.lsp.buf.rename()<cr>', buf)
+          vim.keymap.set(
+            "n",
+            "gR",
+            "<cmd>Trouble lsp_references toggle<cr>",
+            { buffer = event.buf, desc = "[trouble] References panel" }
+          )
+          vim.keymap.set(
+            "n",
+            "gS",
+            "<cmd>lua vim.lsp.buf.signature_help()<cr>",
+            { buffer = event.buf, desc = "[lsp] Signature help" }
+          )
+          vim.keymap.set(
+            "n",
+            "<F2>",
+            "<cmd>lua vim.lsp.buf.rename()<cr>",
+            { buffer = event.buf, desc = "[lsp] Rename symbol" }
+          )
           -- smart code action: rust-analyzer provides richer actions in .rs files
-          vim.keymap.set('n', '<leader>ca', function()
+          vim.keymap.set("n", "<leader>ca", function()
             local clients = vim.lsp.get_clients({ bufnr = 0, name = "rust_analyzer" })
             if #clients > 0 then
               vim.cmd.RustLsp("codeAction")
@@ -304,7 +336,12 @@ return {
               vim.lsp.buf.code_action()
             end
           end, { buffer = event.buf, desc = "Code action" })
-          vim.keymap.set("n", "<leader>pn", "<cmd>Navbuddy<cr>", { buffer = event.buf, desc = "Code structure (Navbuddy)" })
+          vim.keymap.set(
+            "n",
+            "<leader>pn",
+            "<cmd>Navbuddy<cr>",
+            { buffer = event.buf, desc = "Code structure (Navbuddy)" }
+          )
           -- vim.keymap.set({ 'n', 'x' }, '<F3>', '<cmd>lua vim.lsp.buf.format({async = true})<cr>', opts)
           -- vim.keymap.set('n', '<F4>', '<cmd>lua vim.lsp.buf.code_action()<cr>', opts)
         end,
@@ -318,27 +355,32 @@ return {
         })
       end
 
-      require('mason-lspconfig').setup({
+      require("mason-lspconfig").setup({
         ensure_installed = {
-          'lua_ls',
-          'eslint',
-          'gopls',
-          'html',
-          'cssls',
-          'vtsls',
+          "lua_ls",
+          "eslint",
+          "gopls",
+          "html",
+          "cssls",
+          "vtsls",
+          "bashls",
         },
         handlers = {
           -- default handler: applies server-specific opts from the opts.servers table
           function(server_name)
             local server_opts = vim.tbl_deep_extend("force", {}, (opts.servers or {})[server_name] or {})
-            if server_opts.enabled == false then return end
+            if server_opts.enabled == false then
+              return
+            end
             server_opts.enabled = nil
-            require('lspconfig')[server_name].setup(server_opts)
+            require("lspconfig")[server_name].setup(server_opts)
             -- until https://github.com/neovim/neovim/pull/30999 lands
-            for _, method in ipairs({ 'textDocument/diagnostic', 'workspace/diagnostic' }) do
+            for _, method in ipairs({ "textDocument/diagnostic", "workspace/diagnostic" }) do
               local default_diagnostic_handler = vim.lsp.handlers[method]
               vim.lsp.handlers[method] = function(err, result, context, config)
-                if err ~= nil and err.code == -32802 then return end
+                if err ~= nil and err.code == -32802 then
+                  return
+                end
                 return default_diagnostic_handler(err, result, context, config)
               end
             end
@@ -347,15 +389,14 @@ return {
           vtsls = function()
             local server_opts = vim.tbl_deep_extend("force", {}, opts.servers.vtsls or {})
             if server_opts.settings and server_opts.settings.typescript then
-              server_opts.settings.javascript = vim.tbl_deep_extend(
-                "force", {}, server_opts.settings.typescript, server_opts.settings.javascript or {}
-              )
+              server_opts.settings.javascript =
+                vim.tbl_deep_extend("force", {}, server_opts.settings.typescript, server_opts.settings.javascript or {})
             end
-            require('lspconfig').vtsls.setup(server_opts)
+            require("lspconfig").vtsls.setup(server_opts)
           end,
-        }
+        },
       })
-    end
+    end,
   },
   {
     "mfussenegger/nvim-dap",
@@ -497,9 +538,15 @@ return {
       -- q to close each neotest panel — all three are modifiable=false by
       -- design, so pressing q normally hits "E21: Cannot make changes"
       local close_maps = {
-        ["neotest-summary"]      = function() require("neotest").summary.toggle() end,
-        ["neotest-output-panel"] = function() require("neotest").output_panel.toggle() end,
-        ["neotest-output"]       = function() vim.api.nvim_win_close(0, true) end,
+        ["neotest-summary"] = function()
+          require("neotest").summary.toggle()
+        end,
+        ["neotest-output-panel"] = function()
+          require("neotest").output_panel.toggle()
+        end,
+        ["neotest-output"] = function()
+          vim.api.nvim_win_close(0, true)
+        end,
       }
       vim.api.nvim_create_autocmd("FileType", {
         pattern = vim.tbl_keys(close_maps),
@@ -510,23 +557,4 @@ return {
       })
     end,
   },
-  {
-    "echasnovski/mini.pairs",
-    event = "VeryLazy",
-    opts = {
-      modes = { insert = true, command = true, terminal = false },
-      -- skip autopair when next character is one of these
-      skip_next = [=[[%w%%%'%[%"%.%`%$]]=],
-      -- skip autopair when the cursor is inside these treesitter nodes
-      skip_ts = { "string" },
-      -- skip autopair when next character is closing pair
-      -- and there are more closing pairs than opening pairs
-      skip_unbalanced = true,
-      -- better deal with markdown code blocks
-      markdown = true,
-    },
-    config = function(_, opts)
-      require('mini.pairs').setup(opts)
-    end,
-  }
 }

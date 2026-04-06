@@ -26,7 +26,6 @@ return {
   },
   config = function()
     local telescope = require("telescope")
-    local lga_actions = require("telescope-live-grep-args.actions")
     local actions = require("telescope.actions")
     local open_with_trouble = require("trouble.sources.telescope").open
 
@@ -42,7 +41,7 @@ return {
             ["<c-t>"] = open_with_trouble,
           },
           n = {
-            ["q"]     = actions.close,
+            ["q"] = actions.close,
             ["<C-q>"] = actions.send_selected_to_qflist + actions.open_qflist,
             ["<c-t>"] = open_with_trouble,
           },
@@ -54,11 +53,6 @@ return {
         },
         live_grep_args = {
           auto_quoting = true,
-          mappings = {
-            n = {
-              ["<leader>pss"] = lga_actions.quote_prompt({ postfix = " --hidden" }),
-            },
-          },
         },
       },
     })
@@ -87,18 +81,86 @@ return {
     -- vim.keymap.set("n", "<leader>pf", "<cmd>find_files_from_project_git_root<cr>")
   end,
   keys = {
-    { "<leader>pf", "<CMD>Telescope find_files hidden=true<CR>", mode = { "n" } },
-    { "<leader>ff", "<CMD>Telescope find_files <CR>", mode = { "n" } },
-    { "<leader>pff", "<CMD>Telescope find_files hidden=true no_ignore=true no_ignore_parent=true<CR>", mode = { "n" } },
-    { "<leader>pr", "<CMD>Telescope oldfiles<CR>", mode = { "n" } },
-    { "<C-p>",      "<CMD>Telescope git_files<CR>",   mode = { "n" }, desc = "Git files" },
-    { "<leader>pg", "<CMD>Telescope git_status<CR>", mode = { "n" }, desc = "Changed files (git)" },
-    { "<leader>ps", "<CMD>Telescope live_grep<CR>", mode = { "n" } },
-    { "<leader>pss", ":lua require('telescope').extensions.live_grep_args.live_grep_args()<CR>", mode = { "n" } },
-    { "<leader>ph",  "<CMD>Telescope help_tags<CR>",  mode = { "n" } },
-    { "<leader>pk",  "<CMD>Telescope keymaps<CR>",   mode = { "n" }, desc = "Search keymaps" },
-    { "<leader>pp",  "<CMD>Telescope resume<CR>",    mode = { "n" }, desc = "Resume last picker" },
-    { "<leader>pb", "<CMD>Telescope buffers<CR>", mode = { "n" } },
+    {
+      "<leader>ff",
+      function()
+        require("telescope.builtin").find_files()
+      end,
+      mode = { "n" },
+      desc = "Find files (fast, respects gitignore, includes untracked)",
+    },
+    {
+      "<leader>pf",
+      function()
+        require("telescope.builtin").find_files({ hidden = true, no_ignore = true })
+      end,
+      mode = { "n" },
+      desc = "Find files (hidden + gitignored)",
+    },
+    {
+      "<leader>fF",
+      function()
+        require("telescope.builtin").find_files({ hidden = true, no_ignore = true, no_ignore_parent = true })
+      end,
+      mode = { "n" },
+      desc = "Find ALL files (no ignore, nuclear)",
+    },
+    {
+      "<leader>pr",
+      "<CMD>Telescope oldfiles<CR>",
+      mode = { "n" },
+      desc = "Recent files",
+    },
+    {
+      "<C-p>",
+      function()
+        require("telescope.builtin").find_files()
+      end,
+      mode = { "n" },
+      desc = "Find files (fast, respects gitignore, includes untracked)",
+    },
+    {
+      "<leader>pl",
+      "<CMD>Telescope git_status<CR>",
+      mode = { "n" },
+      desc = "Changed files (git status)",
+    },
+    {
+      "<leader>pg",
+      "<CMD>Telescope live_grep<CR>",
+      mode = { "n" },
+      desc = "Live grep",
+    },
+    {
+      "<leader>pG",
+      ":lua require('telescope').extensions.live_grep_args.live_grep_args()<CR>",
+      mode = { "n" },
+      desc = "Live grep with args",
+    },
+    {
+      "<leader>ph",
+      "<CMD>Telescope help_tags<CR>",
+      mode = { "n" },
+      desc = "Help tags",
+    },
+    {
+      "<leader>pk",
+      "<CMD>Telescope keymaps<CR>",
+      mode = { "n" },
+      desc = "Search keymaps",
+    },
+    {
+      "<leader>pp",
+      "<CMD>Telescope resume<CR>",
+      mode = { "n" },
+      desc = "Resume last picker",
+    },
+    {
+      "<leader>pb",
+      "<CMD>Telescope buffers<CR>",
+      mode = { "n" },
+      desc = "Open buffers",
+    },
     {
       "<leader>bf",
       "<CMD>Telescope buffers<CR>",
@@ -108,7 +170,8 @@ return {
     {
       "<leader>pq",
       "<cmd>Telescope quickfix<cr>",
-      desc = "Quickfix List",
+      mode = { "n" },
+      desc = "Quickfix list",
     },
   },
 }
