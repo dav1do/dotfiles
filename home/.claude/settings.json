@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(echo *)",
+      "Bash(find *)",
+      "Bash(gh issue list *)",
+      "Bash(gh issue view *)",
+      "Bash(gh pr checkout *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr view *)",
+      "Bash(gh run list *)",
+      "Bash(gh run view *)",
+      "Bash(gh run watch *)",
+      "Bash(git branch *)",
+      "Bash(git diff *)",
+      "Bash(git diff:*)",
+      "Bash(git log *)",
+      "Bash(git log:*)",
+      "Bash(git rev-parse *)",
+      "Bash(git show *)",
+      "Bash(git stash *)",
+      "Bash(git status *)",
+      "Bash(git status:*)",
+      "Bash(grep *)",
+      "Bash(jq *)",
+      "Bash(ls *)",
+      "Bash(pwd)",
+      "Bash(rg *)",
+      "Bash(sqitch add:*)",
+      "Bash(sqitch status:*)",
+      "Bash(sqitch verify:*)",
+      "Bash(wc *)",
+      "Bash(which *)",
+      "Read",
+      "WebSearch"
+    ],
+    "defaultMode": "acceptEdits"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/david/.claude/hooks/worktree-setup.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/david/.local/bin/claude-bell-notify.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash /Users/david/.claude/statusline.sh"
+  },
+  "enabledPlugins": {
+    "pr-review-toolkit@ukon-approved": true,
+    "commit-commands@ukon-approved": true
+  },
+  "extraKnownMarketplaces": {},
+  "color": "purple"
+}
