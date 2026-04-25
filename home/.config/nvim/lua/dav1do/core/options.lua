@@ -74,7 +74,7 @@ opt.smoothscroll = true
 opt.foldmethod = "expr"
 opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
 opt.foldlevel = 99        -- don't auto-close folds while editing
-opt.foldlevelstart = 2    -- open with top-level structure + impl visible, bodies folded
+opt.foldlevelstart = 99   -- open all folds by default (use zs to fold to level 2)
 opt.foldtext = ""         -- use syntax-highlighted first line as fold label
 opt.foldcolumn = "1"      -- dedicated column for fold indicators (fixes line numbers on folds)
 
@@ -86,5 +86,16 @@ vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
   pattern = { ".env", "*.env", ".env.*" },
   callback = function()
     vim.bo.commentstring = "# %s"
+  end,
+})
+
+-- `nvim path/to/folder`: chdir into the folder so :pwd, pickers, grep, etc.
+-- resolve against it. The snacks explorer listens for DirChanged and resyncs.
+vim.api.nvim_create_autocmd("VimEnter", {
+  callback = function()
+    local argv = vim.fn.argv()
+    if #argv == 1 and vim.fn.isdirectory(argv[1]) == 1 then
+      vim.cmd.cd(vim.fn.fnameescape(argv[1]))
+    end
   end,
 })

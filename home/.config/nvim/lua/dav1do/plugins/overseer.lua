@@ -62,9 +62,14 @@ local function find_node_script(root_dir, kind, candidates)
   local available = vim.tbl_keys(pkg.scripts)
   table.sort(available)
   vim.notify(
-    "Overseer [" .. kind .. "]: no matching script found.\n"
-    .. "Tried: " .. table.concat(candidates, ", ") .. "\n"
-    .. "Available: " .. table.concat(available, ", "),
+    "Overseer ["
+      .. kind
+      .. "]: no matching script found.\n"
+      .. "Tried: "
+      .. table.concat(candidates, ", ")
+      .. "\n"
+      .. "Available: "
+      .. table.concat(available, ", "),
     vim.log.levels.WARN
   )
   return nil
@@ -89,14 +94,15 @@ local function overseer_project_cmd(kind, to_trouble)
   if filename == "Cargo.toml" then
     -- Rust: check = cargo check, lint = clippy (read-only linting, not auto-fix)
     local cmds = {
-      check      = { "cargo", { "check", "--workspace", "--all-targets", "--all-features" } },
-      lint       = { "cargo", { "clippy", "--workspace", "--all-targets", "--all-features" } },
+      check = { "cargo", { "check", "--workspace", "--all-targets", "--all-features" } },
+      lint = { "cargo", { "clippy", "--workspace", "--all-targets", "--all-features" } },
       long_check = { "cargo", { "clippy", "--workspace", "--all-targets", "--all-features", "--", "-D", "warnings" } },
-      build      = { "cargo", { "build" } },
-      test       = { "cargo", { "test" } },
+      build = { "cargo", { "build" } },
+      test = { "cargo", { "test" } },
     }
-    if cmds[kind] then cmd, args = cmds[kind][1], cmds[kind][2] end
-
+    if cmds[kind] then
+      cmd, args = cmds[kind][1], cmds[kind][2]
+    end
   else
     -- Node.js: detect package manager from lockfile
     local pm = ({ ["pnpm-lock.yaml"] = "pnpm", ["yarn.lock"] = "yarn", ["bun.lockb"] = "bun" })[filename] or "npm"
@@ -105,23 +111,33 @@ local function overseer_project_cmd(kind, to_trouble)
       -- Type-check only — read-only, never mutates files.
       -- "lint" is intentionally absent: most projects wire it to auto-fix.
       local script = find_node_script(root_dir, kind, {
-        "check:types", "type-check", "typecheck", "types", "tsc",
+        "check:types",
+        "type-check",
+        "typecheck",
+        "types",
+        "tsc",
       })
-      if not script then return end
+      if not script then
+        return
+      end
       cmd, args = pm, { "run", script }
-
     elseif kind == "lint" then
       -- Broader read-only checks (eslint --no-fix, stylelint, etc.).
       -- "lint" excluded for the same auto-fix reason above.
       local script = find_node_script(root_dir, kind, {
-        "check", "check:all", "check:lint", "lint:check", "validate", "verify",
+        "check",
+        "check:all",
+        "check:lint",
+        "lint:check",
+        "validate",
+        "verify",
       })
-      if not script then return end
+      if not script then
+        return
+      end
       cmd, args = pm, { "run", script }
-
     elseif kind == "build" then
       cmd, args = pm, { "run", "build" }
-
     elseif kind == "test" then
       -- npm has a first-class `test` shorthand; others use `run test`
       cmd, args = pm == "npm" and { "npm", { "test" } } or { pm, { "run", "test" } }
@@ -139,9 +155,7 @@ local function overseer_project_cmd(kind, to_trouble)
     return
   end
 
-  local components = to_trouble
-    and { "default", { "on_output_quickfix", open = false, set_diagnostics = true } }
-    or  nil
+  local components = to_trouble and { "default", { "on_output_quickfix", open = false, set_diagnostics = true } } or nil
 
   local task = overseer.new_task({
     name = cmd .. " " .. table.concat(args, " "),
@@ -157,7 +171,9 @@ local function overseer_project_cmd(kind, to_trouble)
       end)
     end
     if t.status ~= "FAILURE" then
-      vim.defer_fn(function() t:dispose() end, 1000)
+      vim.defer_fn(function()
+        t:dispose()
+      end, 1000)
     end
   end)
   task:start()
@@ -262,9 +278,20 @@ return {
     },
     -- stylua: ignore
     keys = {
-      { "<leader>tp", "<cmd>OverseerToggle<cr>",      desc = "Task list panel" },
-      { "<leader>pt", overseer_run_picker,             desc = "Run task (picker)" },
-      { "<leader>oq", "<cmd>OverseerTaskAction<cr>",    desc = "Task action" },
+      { "<leader>oo", "<cmd>OverseerToggle<cr>",       desc = "Task list panel" },
+      { "<leader>or", overseer_run_picker,              desc = "Run task (picker)" },
+      { "<leader>oR", function()
+          local tasks = require("overseer").list_tasks({ recent_first = true })
+          if not tasks[1] then
+            vim.notify("Overseer: no previous task", vim.log.levels.WARN)
+            return
+          end
+          tasks[1]:restart()
+        end, desc = "Rerun last task" },
+      { "<leader>os", function()
+          require("overseer").run_task({ name = "shell" })
+        end, desc = "Run shell command (task)" },
+      { "<leader>oa", "<cmd>OverseerTaskAction<cr>",    desc = "Task action" },
       { "<leader>ob", function() overseer_project_cmd("build") end, desc = "Project build" },
       { "<leader>ot", function() overseer_project_cmd("test") end,  desc = "Project test" },
       { "<leader>oc", function() overseer_project_cmd("check") end, desc = "Project check" },

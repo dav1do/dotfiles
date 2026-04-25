@@ -1,5 +1,4 @@
-return
-{
+return {
   {
     "folke/which-key.nvim",
     opts = {
@@ -12,8 +11,11 @@ return
     "Saecki/crates.nvim",
     event = { "BufReadPost Cargo.toml", "BufNewFile Cargo.toml" },
     opts = {
-      completion = {
-        cmp = { enabled = true },
+      lsp = {
+        enabled = true,
+        actions = true,
+        completion = true,
+        hover = true,
       },
     },
     config = function(_, opts)
@@ -27,69 +29,68 @@ return
           local map = function(key, fn, desc)
             vim.keymap.set("n", "<localleader>" .. key, fn, { buffer = buf, desc = desc })
           end
-          map("v",  c.show_versions_popup,     "crates: versions")
-          map("f",  c.show_features_popup,     "crates: features")
-          map("d",  c.show_dependencies_popup, "crates: dependencies")
-          map("u",  c.update_crate,            "crates: update")
-          map("U",  c.upgrade_crate,           "crates: upgrade")
-          map("ua", c.update_all_crates,       "crates: update all")
-          map("uA", c.upgrade_all_crates,      "crates: upgrade all")
-          map("D",  c.open_documentation,      "crates: open docs")
-          map("r",  c.open_repository,         "crates: open repository")
+          map("v", c.show_versions_popup, "crates: versions")
+          map("f", c.show_features_popup, "crates: features")
+          map("d", c.show_dependencies_popup, "crates: dependencies")
+          map("u", c.update_crate, "crates: update")
+          map("U", c.upgrade_crate, "crates: upgrade")
+          map("ua", c.update_all_crates, "crates: update all")
+          map("uA", c.upgrade_all_crates, "crates: upgrade all")
+          map("D", c.open_documentation, "crates: open docs")
+          map("r", c.open_repository, "crates: open repository")
         end,
       })
     end,
   },
   {
-    'vxpm/ferris.nvim',
+    -- ferris is retained solely for view_memory_layout (struct offsets/sizes).
+    -- Everything else ferris exposed is covered by rustaceanvim's :RustLsp view / syntaxTree.
+    "vxpm/ferris.nvim",
     opts = {},
-    -- stylua: ignore
     keys = {
-      { "<leader>crl", function() require("ferris.methods.view_memory_layout")() end, desc = "View Memory [L]ayout" },
-      { "<leader>crm", function() require("ferris.methods.view_mir")() end,           desc = "View [M]ir" },
-      { "<leader>crh", function() require("ferris.methods.view_hir")() end,           desc = "View [H]ir" },
-      { "<leader>cri", function() require("ferris.methods.view_item_tree")() end,     desc = "View [I]tem Tree" },
-      { "<leader>crS", function() require("ferris.methods.view_syntax_tree")() end,   desc = "View Item [S]yntax Tree (ferris)" },
-    }
+      {
+        "<leader>crm",
+        function()
+          require("ferris.methods.view_memory_layout")()
+        end,
+        desc = "[m]emory layout",
+      },
+    },
   },
   {
     "mrcjkb/rustaceanvim",
     version = "^6",
     lazy = false,
+    -- stylua: ignore
     keys = {
-      { "<C-.>",        function() vim.cmd.RustLsp("codeAction") end,                     desc = "Rust Code Action" },
-      -- diagnostic rendering: K renders the diagnostic under cursor; <leader>ce cycles to next.
-      -- Guard: if focus is in a sidebar/panel, wincmd p returns to the code window first so
-      -- the horizontal split opens below code, not below the sidebar.
-      { "<leader>ce", function()
-          if #vim.lsp.get_clients({ bufnr = 0, name = "rust_analyzer" }) == 0 then
-            vim.notify("rust-analyzer not attached", vim.log.levels.WARN)
-            return
-          end
-          if vim.bo.buftype ~= "" then vim.cmd("wincmd p") end
-          vim.cmd.RustLsp({ "renderDiagnostic", "cycle" })
-        end, desc = "[rust] Next diagnostic (cargo-style)" },
-      { "<leader>cE",   function() vim.cmd.RustLsp({ "explainError",     "current" }) end, desc = "[rust] Explain error code" },
+      { "<C-.>",       function() vim.cmd.RustLsp("codeAction") end,                        desc = "Rust Code Action" },
+      -- K renders the diagnostic under cursor when one exists; otherwise plain hover.
+      { "<leader>crd", function() vim.cmd.RustLsp("openDocs") end,                          desc = "Open [d]ocs (docs.rs)" },
+      { "<leader>crD", function() vim.cmd.RustLsp("debuggables") end,                       desc = "[D]ebuggables" },
+      { "<leader>cre", function() vim.cmd.RustLsp("expandMacro") end,                       desc = "[e]xpand macro" },
+      { "<leader>crE", function() vim.cmd.RustLsp({ "explainError", "current" }) end,       desc = "[E]xplain error code" },
+      { "<leader>crh", function() vim.cmd.RustLsp({ "view", "hir" }) end,                   desc = "view [h]ir" },
+      { "<leader>crM", function() vim.cmd.RustLsp({ "view", "mir" }) end,                   desc = "view [M]ir" },
+      { "<leader>crp", function() vim.cmd.RustLsp("parentModule") end,                      desc = "[p]arent module" },
       -- dump current LSP diagnostics (= cargo check output) into quickfix; navigate with ]q/[q
-      { "<leader>crq", function()
-          vim.diagnostic.setqflist({ severity = vim.diagnostic.severity.ERROR, open = true })
-        end, desc = "[R]ust errors → quickfix" },
-      { "<leader>crd",  function() vim.cmd.RustLsp("debuggables") end,                     desc = "Rust [D]ebuggables" },
-      { "<leader>cre",  function() vim.cmd.RustLsp("expandMacro") end,                     desc = "[E]xpand Macro" },
-      { "<leader>crr", function() vim.cmd.RustLsp("rebuildProcMacros") end, desc = "[R]ebuild proc macros" },
-      { "<leader>crs", function() vim.cmd.RustLsp("syntaxTree") end,        desc = "[S]yntax tree" },
-      { "<leader>crt", function() vim.cmd.RustLsp("openCargo") end,         desc = "Open Cargo.[t]oml" },
+      { "<leader>crq", function() vim.diagnostic.setqflist({ severity = vim.diagnostic.severity.ERROR, open = true }) end, desc = "errors → [q]uickfix" },
+      { "<leader>crr", function() vim.cmd.RustLsp("runnables") end,                         desc = "[r]unnables" },
+      { "<leader>crR", function() vim.cmd.RustLsp("rebuildProcMacros") end,                 desc = "[R]ebuild proc macros" },
+      { "<leader>crs", function() vim.cmd.RustLsp("syntaxTree") end,                        desc = "[s]yntax tree" },
+      { "<leader>crt", function() vim.cmd.RustLsp("openCargo") end,                         desc = "Open Cargo.[t]oml" },
+      { "<leader>crw", function() vim.cmd.RustLsp("reloadWorkspace") end,                   desc = "reload [w]orkspace" },
       {
         "<leader>crC",
         function()
-          local clients = vim.lsp.get_clients({ name = "rust_analyzer" })
-          if #clients == 0 then
+          local client = vim.lsp.get_clients({ name = "rust_analyzer" })[1]
+          if not client then
             vim.notify("rust-analyzer not attached", vim.log.levels.WARN)
             return
           end
-          local ra = clients[1].config.settings["rust-analyzer"]
+          ---@type table
+          local ra = client.config.settings["rust-analyzer"]
           ra.checkOnSave = not ra.checkOnSave
-          clients[1].notify("workspace/didChangeConfiguration", { settings = clients[1].config.settings })
+          client:notify("workspace/didChangeConfiguration", { settings = client.config.settings })
           vim.notify("rust-analyzer checkOnSave: " .. tostring(ra.checkOnSave))
         end,
         desc = "Toggle [C]heck on save",
@@ -108,6 +109,10 @@ return
         on_attach = function(_, bufnr)
           -- switched keymaps to keys object to get better which key support
           vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
+          -- visual gK: hover the type of the selected expression (iterator chains, etc.)
+          vim.keymap.set("x", "gK", function()
+            vim.cmd.RustLsp({ "hover", "range" })
+          end, { buffer = bufnr, desc = "Rust: hover type of selection" })
         end,
         default_settings = {
           -- rust-analyzer language server configuration
@@ -120,7 +125,7 @@ return
               loadOutDirsFromCheck = true,
               buildScripts = {
                 enable = true,
-              }
+              },
             },
             check = { command = "check" },
             diagnostics = {
@@ -143,8 +148,8 @@ return
                 ".devenv",
                 "target",
                 "node_modules",
-                "nix"
-              }
+                "nix",
+              },
             },
             testExplorer = true,
             inlayHints = {
@@ -177,10 +182,13 @@ return
       --   • ra_diag_buf tracking — close any previous terminal before a new one appears
       --     (handles K-then-<leader>ce, double-K, etc. without a "already connected" error)
       local ra_diag_buf = nil
+      ---@diagnostic disable-next-line: param-type-mismatch
       vim.api.nvim_create_autocmd("TermOpen", {
         callback = function(args)
           local name = vim.api.nvim_buf_get_name(args.buf)
-          if not name:find("rustaceanvim") then return end
+          if not name:find("rustaceanvim") then
+            return
+          end
 
           -- close the previous terminal if still open
           if ra_diag_buf and vim.api.nvim_buf_is_valid(ra_diag_buf) then
@@ -202,5 +210,5 @@ return
         end,
       })
     end,
-  }
+  },
 }

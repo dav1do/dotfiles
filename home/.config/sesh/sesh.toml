@@ -13,9 +13,9 @@ startup_command = "~/.config/sesh/scripts/two-windows.sh"
 [[session]]
 name = "ukon-core"
 path = "~/ukon/ukon-core"
-startup_command = "~/.config/sesh/scripts/edit-code.sh"
+startup_command = "~/.config/sesh/scripts/two-windows.sh"
 
 [[session]]
 name = "ui"
 path = "~/ukon/ui"
-startup_command = "~/.config/sesh/scripts/edit-code.sh"
+startup_command = "~/.config/sesh/scripts/two-windows.sh"

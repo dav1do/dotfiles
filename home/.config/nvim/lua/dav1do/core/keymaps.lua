@@ -10,32 +10,32 @@ vim.g.mapleader = " "
 -- vim.keymap.set("i", "jk", "<ESC>", { desc = "Exit insert mode with jk" })
 -- vim.keymap.set("i", "kj", "<ESC>", { desc = "Exit insert mode with kj" })
 -- clear search highlights
-vim.keymap.set("n", "<leader>nh", ":nohl<CR>", { desc = "Clear search highlights" })
+vim.keymap.set("n", "<Esc><Esc>", "<cmd>nohlsearch<CR>", { desc = "Clear search highlights" })
 
 -- delete single character without copying into register
-vim.keymap.set("n", "x", '"_x')
+vim.keymap.set({ "n", "x" }, "x", '"_x')
 
+-- visual paste doesn't clobber clipboard with the replaced text
+-- (default behavior is: pasting over a selection copies the selection
+-- to the unnamed register, which is almost never what you want)
+-- we keep P since it's the same (no before/after in visual) and let's a paste & swap keyboard option stay
+vim.keymap.set("x", "p", '"_dP', { desc = "Paste without yanking replaced" })
 -- increment/decrement numbers
 -- vim.keymap.set("n", "<leader>+", "<C-a>", { desc = "Increment number" }) -- increment
 -- vim.keymap.set("n", "<leader>-", "<C-x>", { desc = "Decrement number" }) -- decrement
 
 -- window management
-vim.keymap.set("n", "<leader>sv", "<C-w>v", { desc = "Split window vertically" })     -- split window vertically
-vim.keymap.set("n", "<leader>sh", "<C-w>s", { desc = "Split window horizontally" })   -- split window horizontally
-vim.keymap.set("n", "<leader>se", "<C-w>=", { desc = "Make splits equal size" })      -- make split windows equal width & height
+vim.keymap.set("n", "<leader>sv", "<C-w>v", { desc = "Split window vertically" }) -- split window vertically
+vim.keymap.set("n", "<leader>sh", "<C-w>s", { desc = "Split window horizontally" }) -- split window horizontally
+vim.keymap.set("n", "<leader>se", "<C-w>=", { desc = "Make splits equal size" }) -- make split windows equal width & height
 vim.keymap.set("n", "<leader>sd", "<cmd>close<CR>", { desc = "Close current split" }) -- close current split window
-vim.keymap.set("n", "<leader>sD", "<C-w>o", { desc = "Close all other splits" })     -- keep only current window
+vim.keymap.set("n", "<leader>so", "<C-w>o", { desc = "Close all other splits (only this)" }) -- keep only current window
 
 -- tab (workspace) management
-vim.keymap.set("n", "<leader>tn", "<cmd>tabnew<cr>",   { desc = "New tab" })
+vim.keymap.set("n", "<leader>tn", "<cmd>tabnew<cr>", { desc = "New tab" })
 vim.keymap.set("n", "<leader>tq", "<cmd>tabclose<cr>", { desc = "Close tab" })
-vim.keymap.set("n", "]t", "<cmd>tabnext<cr>",     { desc = "Next tab" })
+vim.keymap.set("n", "]t", "<cmd>tabnext<cr>", { desc = "Next tab" })
 vim.keymap.set("n", "[t", "<cmd>tabprevious<cr>", { desc = "Prev tab" })
-
-vim.keymap.set("n", "<leader>ml", "<C-w>L", { desc = "Move window to right split" })
-vim.keymap.set("n", "<leader>mj", "<C-w>J", { desc = "Move window to bottom split" })
-vim.keymap.set("n", "<leader>mk", "<C-w>K", { desc = "Move window to top split" })
-vim.keymap.set("n", "<leader>mh", "<C-w>H", { desc = "Move window to left split" })
 
 -- move between buffers. overwrites H/L cursor to top/bottom, but with `s` mappings not really needed
 vim.keymap.set("n", "<S-h>", "<cmd>bprevious<cr>", { desc = "Prev Buffer" })
@@ -46,17 +46,19 @@ vim.keymap.set("n", "<S-l>", "<cmd>bnext<cr>", { desc = "Next Buffer" })
 -- vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Go to Upper Window", remap = true })
 -- vim.keymap.set("n", "<C-l>", "<C-w>l", { desc = "Go to Right Window", remap = true })
 
-
 -- <Esc> exits terminal mode for plain shell terminals (psql, generic shell).
 -- TUI apps that use <Esc> internally are excluded:
 --   claude  → uses <C-e> instead (see claude.lua) to avoid cancelling the process
 --   lazygit → uses <Esc> for panel navigation; use <C-\><C-n> to escape if needed
 local tui_patterns = { "claude", "lazygit" }
+---@diagnostic disable-next-line: param-type-mismatch
 vim.api.nvim_create_autocmd("TermOpen", {
   callback = function(args)
     local name = vim.api.nvim_buf_get_name(args.buf)
     for _, pat in ipairs(tui_patterns) do
-      if name:find(pat) then return end
+      if name:find(pat) then
+        return
+      end
     end
     vim.keymap.set("t", "<Esc>", "<C-\\><C-n>", { buffer = args.buf, desc = "Exit terminal mode" })
   end,
@@ -125,22 +127,41 @@ end, { desc = "Set filetype" })
 -- cursor mgmt
 vim.keymap.set("n", "J", "mzJ`z") -- don't move cursor when appending text to line
 -- keep cursor centered when paging and searching
-vim.keymap.set("n", "<C-d>", "<C-d>zz")
-vim.keymap.set("n", "<C-u>", "<C-u>zz")
+-- use 40% of window height instead of 50% so destination stays within the previous viewport
+vim.keymap.set("n", "<C-d>", function()
+  local count = math.floor(vim.api.nvim_win_get_height(0) * 0.4)
+  local key = vim.api.nvim_replace_termcodes("<C-d>", true, true, true)
+  vim.cmd("normal! " .. count .. key .. "zz")
+end)
+vim.keymap.set("n", "<C-u>", function()
+  local count = math.floor(vim.api.nvim_win_get_height(0) * 0.4)
+  local key = vim.api.nvim_replace_termcodes("<C-u>", true, true, true)
+  vim.cmd("normal! " .. count .. key .. "zz")
+end)
 vim.keymap.set("n", "n", "nzzzv")
 vim.keymap.set("n", "N", "Nzzzv")
+
+-- folding: quick fold-to-level-2
+vim.keymap.set("n", "zs", function()
+  vim.opt.foldlevel = 2
+end, { desc = "Fold to level 2 (standard)" })
 
 -- structural navigation: use ]f/[f (functions) and ]i/[i (impl/class) directly
 
 vim.keymap.set({ "n", "v" }, "<leader>D", [["_d]], { desc = "Delete without copying" })
 vim.keymap.set({ "n", "v" }, "<leader>P", [["0p]], { desc = "Paste last yank (safe)" })
 
--- Macro recording: moved to explicit keys to prevent accidental q-in-code-buffer triggers.
--- Buffer-local q mappings (trouble, neotest, rustaceanvim panels) are unaffected — they
--- always take precedence over this global mapping.
-vim.keymap.set("n", "q",  "<nop>")                                        -- disable accidental recording
-vim.keymap.set("n", "gq", "q",   { desc = "Record macro (gq{register})" }) -- intentional: gqm starts @m, gq stops
-vim.keymap.set("n", "Q",  "@@",  { desc = "Replay last macro" })
+-- Macro recording: gq is the intentional entry (hijacks vim's format operator —
+-- you don't use gq-format for prose, so the trade is worth it).
+-- Native q alone is disabled because frustration-mashing starts accidental recording.
+-- q:/q//q? are preserved — they open command/search history as editable buffers.
+-- Buffer-local q mappings (trouble, neotest, rustaceanvim) still override when needed.
+vim.keymap.set("n", "q", "<nop>")
+vim.keymap.set("n", "q:", "q:", { noremap = true, desc = "Command history window" })
+vim.keymap.set("n", "q/", "q/", { noremap = true, desc = "Search history window (forward)" })
+vim.keymap.set("n", "q?", "q?", { noremap = true, desc = "Search history window (reverse)" })
+vim.keymap.set("n", "gq", "q", { desc = "Record macro (gq{register} to start, gq to stop)" })
+vim.keymap.set("n", "Q", "@@", { desc = "Replay last macro" })
 
 -- Notify when recording starts/stops so it's impossible to miss.
 -- Capture the register in Enter because reg_recording() is already cleared by Leave.
@@ -148,12 +169,20 @@ local _macro_reg = ""
 vim.api.nvim_create_autocmd("RecordingEnter", {
   callback = function()
     _macro_reg = vim.fn.reg_recording()
-    vim.notify("Recording @" .. _macro_reg .. "   gq to stop", vim.log.levels.WARN, { title = "Macro", timeout = 10000 })
+    vim.notify(
+      "Recording @" .. _macro_reg .. "   gq to stop",
+      vim.log.levels.WARN,
+      { title = "Macro", timeout = 10000 }
+    )
   end,
 })
 vim.api.nvim_create_autocmd("RecordingLeave", {
   callback = function()
-    vim.notify("Saved @" .. _macro_reg .. "   Q or @" .. _macro_reg .. " to play", vim.log.levels.INFO, { title = "Macro", timeout = 10000 })
+    vim.notify(
+      "Saved @" .. _macro_reg .. "   Q or @" .. _macro_reg .. " to play",
+      vim.log.levels.INFO,
+      { title = "Macro", timeout = 10000 }
+    )
   end,
 })
 
@@ -161,7 +190,22 @@ vim.api.nvim_create_autocmd("RecordingLeave", {
 vim.keymap.set("i", "<C-c>", "<Esc>")
 
 -- replace the word under cursor in entire file with whatever you type
-vim.keymap.set("n", "<leader>ra", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]], { desc = "Replace word under cursor in file" })
+vim.keymap.set(
+  "n",
+  "<leader>rw",
+  [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]],
+  { desc = "Replace word under cursor in file" }
+)
+
+-- replace visual selection in entire file (literal match via \V; cursor lands in replacement slot)
+vim.keymap.set("x", "<leader>rs", function()
+  vim.cmd('normal! "sy')
+  local selection = vim.fn.getreg("s")
+  local escaped = (vim.fn.escape(selection, [[\/]]):gsub("\n", "\\n"))
+  local cmd = ":%s/\\V" .. escaped .. "//gI"
+  local keys = cmd .. vim.api.nvim_replace_termcodes("<Left><Left><Left>", true, false, true)
+  vim.api.nvim_feedkeys(keys, "n", false)
+end, { desc = "Replace visual selection in file" })
 -- vim.keymap.set("n", "<leader>x", "<cmd>!chmod +x %<CR>", { silent = true }) -- set current file as exectuable
 
 -- keep visual selection when indenting
@@ -174,36 +218,41 @@ vim.keymap.set("n", "<leader>uw", function()
   vim.wo.linebreak = vim.wo.wrap -- word-boundary breaks when wrap is on
 end, { desc = "Toggle wrap" })
 
+-- inlay hints are per-buffer; toggle only this buffer so turning them off for
+-- one dense file doesn't suppress them globally when you move on.
+vim.keymap.set("n", "<leader>uh", function()
+  local enabled = vim.lsp.inlay_hint.is_enabled({ bufnr = 0 })
+  vim.lsp.inlay_hint.enable(not enabled, { bufnr = 0 })
+end, { desc = "Toggle inlay hints (buffer)" })
+
 vim.keymap.set("n", "<leader>fn", "<cmd>enew<cr>", { desc = "New file" })
 vim.keymap.set("n", "<leader>ws", ":saveas ", { desc = "Save as" })
-
-vim.keymap.set("n", "<leader>rr", "<cmd>source %<CR>", { desc = "Reload current file" })
 
 -- file mgmt
 -- vim.keymap.set("n", "<leader><leader>", function()
 --   vim.cmd("so") --reload file
 -- end)
 
-vim.keymap.set("n", "<leader>ww", function()
-  vim.cmd("w")
-end, { desc = "write file" })
-vim.keymap.set("n", "<leader>qa", function()
-  vim.cmd("qa")
-end, { desc = "quit all buffers" })
-
-vim.keymap.set("n", "<leader>qqa", function()
-  vim.cmd("qa!")
-end, { desc = "force quit all" })
+-- quick save without leaving insert (muscle memory)
+vim.keymap.set({ "n", "i" }, "<C-s>", "<cmd>w<cr>", { desc = "Save file" })
 
 -- quickfix navigation (used with <leader>crq / :copen)
 vim.keymap.set("n", "]q", "<cmd>cnext<cr>", { desc = "Next quickfix" })
 vim.keymap.set("n", "[q", "<cmd>cprev<cr>", { desc = "Prev quickfix" })
 
 -- diagnostic/error navigation (current buffer only)
-vim.keymap.set("n", "]d", function() vim.diagnostic.jump({ count = 1 }) end,  { desc = "Next diagnostic" })
-vim.keymap.set("n", "[d", function() vim.diagnostic.jump({ count = -1 }) end, { desc = "Prev diagnostic" })
-vim.keymap.set("n", "]e", function() vim.diagnostic.jump({ count = 1,  severity = vim.diagnostic.severity.ERROR }) end, { desc = "Next error" })
-vim.keymap.set("n", "[e", function() vim.diagnostic.jump({ count = -1, severity = vim.diagnostic.severity.ERROR }) end, { desc = "Prev error" })
+vim.keymap.set("n", "]d", function()
+  vim.diagnostic.jump({ count = 1 })
+end, { desc = "Next diagnostic" })
+vim.keymap.set("n", "[d", function()
+  vim.diagnostic.jump({ count = -1 })
+end, { desc = "Prev diagnostic" })
+vim.keymap.set("n", "]e", function()
+  vim.diagnostic.jump({ count = 1, severity = vim.diagnostic.severity.ERROR })
+end, { desc = "Next error" })
+vim.keymap.set("n", "[e", function()
+  vim.diagnostic.jump({ count = -1, severity = vim.diagnostic.severity.ERROR })
+end, { desc = "Prev error" })
 
 -- cross-file error navigation via Trouble (jumps through project-wide diagnostics)
 -- Ensures the diagnostics list is open (background) so there is data to navigate.

@@ -8,18 +8,18 @@ return {
       always_show_bufferline = false,
       offsets = {
         {
-          filetype = "NvimTree",
+          filetype = "snacks_explorer",
           text = "File Explorer",
           highlight = "Directory",
-          separator = true -- use a "true" to enable the default, or set your own character
-        }
+          separator = true, -- use a "true" to enable the default, or set your own character
+        },
       },
     },
   },
   config = function(_, opts)
     -- if (vim.g.colors_name or ""):find("catppuccin") then
     --   opts.highlights = require("catppuccin.groups.integrations.bufferline").get()
-   -- end
+    -- end
     require("bufferline").setup(opts)
     -- Fix bufferline when restoring a session
     vim.api.nvim_create_autocmd({ "BufAdd", "BufDelete" }, {
@@ -27,7 +27,7 @@ return {
         vim.schedule(function()
           pcall(require("bufferline").refresh)
         end)
-      end
+      end,
     })
   end,
 }

@@ -1,5 +1,6 @@
 return {
   "nvim-tree/nvim-tree.lua",
+  enabled = false, -- replaced by snacks explorer
   dependencies = "nvim-tree/nvim-web-devicons",
   config = function()
     -- recommended settings from nvim-tree documentation
@@ -32,7 +33,9 @@ return {
         map("gs", function()
           local changed = vim.fn.systemlist("git diff --name-only HEAD 2>/dev/null")
           local untracked = vim.fn.systemlist("git ls-files --others --exclude-standard 2>/dev/null")
-          for _, f in ipairs(untracked) do table.insert(changed, f) end
+          for _, f in ipairs(untracked) do
+            table.insert(changed, f)
+          end
           if #changed == 0 then
             vim.notify("No changed files", vim.log.levels.INFO, { title = "nvim-tree" })
             return
@@ -86,14 +89,22 @@ return {
             enable = true,
             picker = "default",
             exclude = {
-              filetype = { "dbout", "dbui", "trouble", "qf", "diff",
-                           "fugitive", "fugitiveblame", "notify" },
-              buftype  = { "terminal", "nofile", "help" },
+              filetype = {
+                "dbout",
+                "dbui",
+                "trouble",
+                "qf",
+                "diff",
+                "fugitive",
+                "fugitiveblame",
+                "notify",
+              },
+              buftype = { "terminal", "nofile", "help" },
             },
           },
         },
       },
-      update_focused_file = { enable = true, },
+      update_focused_file = { enable = true },
       filters = {
         dotfiles = false,
         git_ignored = false,
@@ -108,7 +119,9 @@ return {
     -- when other splits open/close alongside the tree.
     vim.api.nvim_create_autocmd("FileType", {
       pattern = "NvimTree",
-      callback = function() vim.wo.winfixwidth = true end,
+      callback = function()
+        vim.wo.winfixwidth = true
+      end,
     })
 
     -- set keymaps
@@ -122,7 +135,7 @@ return {
       if skip_ft[cur_ft] then
         for _, win in ipairs(vim.api.nvim_list_wins()) do
           local cfg = vim.api.nvim_win_get_config(win)
-          local ft  = vim.bo[vim.api.nvim_win_get_buf(win)].filetype
+          local ft = vim.bo[vim.api.nvim_win_get_buf(win)].filetype
           if cfg.relative == "" and not skip_ft[ft] then
             vim.api.nvim_set_current_win(win)
             break
@@ -132,13 +145,15 @@ return {
       api.tree.toggle({ focus = false, find_file = false })
     end, { desc = "Toggle file explorer" })
     keymap.set("n", "<leader>ee", "<cmd>NvimTreeFindFileToggle<CR>", { desc = "Toggle file explorer on current file" })
-    keymap.set("n", "<leader>ec", "<cmd>NvimTreeCollapse<CR>",        { desc = "Collapse file explorer" })
-    keymap.set("n", "<leader>er", "<cmd>NvimTreeRefresh<CR>",         { desc = "Refresh file explorer" })
+    keymap.set("n", "<leader>ec", "<cmd>NvimTreeCollapse<CR>", { desc = "Collapse file explorer" })
+    keymap.set("n", "<leader>er", "<cmd>NvimTreeRefresh<CR>", { desc = "Refresh file explorer" })
     -- git-changed: pick from changed files → reveal in tree (<leader>ps equivalent for the explorer)
     keymap.set("n", "<leader>eg", function()
       local changed = vim.fn.systemlist("git diff --name-only HEAD 2>/dev/null")
       local untracked = vim.fn.systemlist("git ls-files --others --exclude-standard 2>/dev/null")
-      for _, f in ipairs(untracked) do table.insert(changed, f) end
+      for _, f in ipairs(untracked) do
+        table.insert(changed, f)
+      end
       if #changed == 0 then
         vim.notify("No changed files", vim.log.levels.INFO, { title = "nvim-tree" })
         return
@@ -189,5 +204,5 @@ return {
     -- --     end
     -- --   end
     -- -- })
-  end
+  end,
 }

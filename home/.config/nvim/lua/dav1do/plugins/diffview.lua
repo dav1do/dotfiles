@@ -10,7 +10,9 @@ return {
       once = false,
       callback = function()
         vim.notify = function(msg, level, o)
-          if type(msg) == "string" and msg:match("Failed to create diff buffer") then return end
+          if type(msg) == "string" and msg:match("Failed to create diff buffer") then
+            return
+          end
           orig_notify(msg, level, o)
         end
       end,
@@ -18,7 +20,9 @@ return {
     vim.api.nvim_create_autocmd("User", {
       pattern = "DiffviewViewClosed",
       once = false,
-      callback = function() vim.notify = orig_notify end,
+      callback = function()
+        vim.notify = orig_notify
+      end,
     })
     require("diffview").setup(opts)
   end,
