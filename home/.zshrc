@@ -102,6 +102,7 @@ source $ZSH/oh-my-zsh.sh
 # fi
 export EDITOR="nvim"
 export VISUAL="nvim"
+export MANPAGER='nvim +Man!'
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
 
@@ -177,3 +178,7 @@ if [ -f '/Users/david/bin/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/david
 # The next line enables shell command completion for gcloud.
 if [ -f '/Users/david/bin/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/david/bin/google-cloud-sdk/completion.zsh.inc'; fi
 export PATH="$HOME/.local/bin:$PATH"
+
+# Claude Code
+export CLAUDE_CODE_NO_FLICKER=1
+export CLAUDE_CODE_DISABLE_MOUSE=1

@@ -2,15 +2,7 @@ return {
   -- Better `vim.notify()`
   {
     "rcarriga/nvim-notify",
-    keys = {
-      {
-        "<leader>un",
-        function()
-          require("notify").dismiss({ silent = true, pending = true })
-        end,
-        desc = "Dismiss All Notifications",
-      },
-    },
+    event = "VeryLazy",
     opts = {
       stages = "static",
       timeout = 5000,
@@ -40,7 +32,7 @@ return {
         override = {
           ["vim.lsp.util.convert_input_to_markdown_lines"] = true,
           ["vim.lsp.util.stylize_markdown"] = true,
-          ["cmp.entry.get_documentation"] = true,   -- requires hrsh7th/nvim-cmp
+          ["cmp.entry.get_documentation"] = true, -- requires hrsh7th/nvim-cmp
         },
       },
       routes = {
@@ -75,24 +67,26 @@ return {
         -- },
       },
       presets = {
-        bottom_search = true,         -- use a classic bottom cmdline for search
-        command_palette = true,       -- position the cmdline and popupmenu together
+        bottom_search = true, -- use a classic bottom cmdline for search
+        command_palette = false, -- position the cmdline and popupmenu together
         long_message_to_split = true, -- long messages will be sent to a split
-        inc_rename = false,           -- enables an input dialog for inc-rename.nvim
-        lsp_doc_border = false,       -- add a border to hover docs and signature help
+        inc_rename = false, -- enables an input dialog for inc-rename.nvim
+        lsp_doc_border = true, -- add a border to hover docs and signature help
       },
     },
     -- stylua: ignore
     keys = {
-      --   { "<leader>sn",  "",                                                                            desc = "+noice" },
-      --   { "<S-Enter>",   function() require("noice").redirect(vim.fn.getcmdline()) end,                 mode = "c",                              desc = "Redirect Cmdline" },
-      { "<leader>nsl", function() require("noice").cmd("last") end,    desc = "Noice Last Message" },
-      { "<leader>nsh", function() require("noice").cmd("history") end, desc = "Noice History" },
-      --   { "<leader>sna", function() require("noice").cmd("all") end,                                    desc = "Noice All" },
-      --   { "<leader>snd", function() require("noice").cmd("dismiss") end,                                desc = "Dismiss All" },
-      --   { "<leader>snt", function() require("noice").cmd("pick") end,                                   desc = "Noice Picker (Telescope/FzfLua)" },
-      --   { "<c-f>",       function() if not require("noice.lsp").scroll(4) then return "<c-f>" end end,  silent = true,                           expr = true,              desc = "Scroll Forward",  mode = { "i", "n", "s" } },
-      --   { "<c-b>",       function() if not require("noice.lsp").scroll(-4) then return "<c-b>" end end, silent = true,                           expr = true,              desc = "Scroll Backward", mode = { "i", "n", "s" } },
+      { "<leader>nl", function() require("noice").cmd("last") end,    desc = "Last message" },
+      { "<leader>nh", function() require("noice").cmd("history") end, desc = "Message history" },
+      { "<leader>na", function() require("noice").cmd("all") end,     desc = "All messages" },
+      { "<leader>np", function() require("noice").cmd("pick") end,    desc = "Pick message (searchable)" },
+      { "<leader>nd", function()
+          require("noice").cmd("dismiss")
+          pcall(function() require("notify").dismiss({ silent = true, pending = true }) end)
+        end, desc = "Dismiss messages" },
+      { "<S-Enter>", function() require("noice").redirect(vim.fn.getcmdline()) end, mode = "c", desc = "Redirect cmdline to split" },
+      { "<C-f>", function() if not require("noice.lsp").scroll(4)  then return "<C-f>" end end, silent = true, expr = true, mode = { "i", "n", "s" }, desc = "Scroll doc forward" },
+      { "<C-b>", function() if not require("noice.lsp").scroll(-4) then return "<C-b>" end end, silent = true, expr = true, mode = { "i", "n", "s" }, desc = "Scroll doc backward" },
     },
     config = function(_, opts)
       -- HACK: noice shows messages from before it was enabled,

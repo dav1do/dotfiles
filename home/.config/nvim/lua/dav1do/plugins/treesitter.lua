@@ -58,10 +58,10 @@ return {
       incremental_selection = {
         enable = true,
         keymaps = {
-          init_selection = "<C-space>",
-          node_incremental = "<C-space>",
-          scope_incremental = false,
-          node_decremental = "<bs>",
+          init_selection = "<CR>",
+          node_incremental = "<CR>",
+          scope_incremental = "<Tab>", -- bigger jump: next syntactic scope
+          node_decremental = "<BS>",
         },
       },
       textobjects = {
@@ -71,12 +71,12 @@ return {
           keymaps = {
             ["af"] = { query = "@function.outer", desc = "around function" },
             ["if"] = { query = "@function.inner", desc = "inner function" },
-            ["ac"] = { query = "@class.outer",    desc = "around class/impl" },
-            ["ic"] = { query = "@class.inner",    desc = "inner class/impl" },
+            ["ac"] = { query = "@class.outer", desc = "around class/impl" },
+            ["ic"] = { query = "@class.inner", desc = "inner class/impl" },
             ["aa"] = { query = "@parameter.outer", desc = "around argument" },
             ["ia"] = { query = "@parameter.inner", desc = "inner argument" },
-            ["ab"] = { query = "@block.outer",    desc = "around block" },
-            ["ib"] = { query = "@block.inner",    desc = "inner block" },
+            ["ab"] = { query = "@block.outer", desc = "around block" },
+            ["ib"] = { query = "@block.inner", desc = "inner block" },
           },
         },
         move = {
@@ -84,21 +84,21 @@ return {
           set_jumps = true, -- adds to jumplist so <C-o>/<C-i> can go back
           goto_next_start = {
             ["]f"] = { query = "@function.outer", desc = "Next function" },
-            ["]i"] = { query = "@class.outer",    desc = "Next impl/class" },
+            ["]i"] = { query = "@class.outer", desc = "Next impl/class" },
             ["]a"] = { query = "@parameter.inner", desc = "Next argument" },
           },
           goto_next_end = {
             ["]F"] = { query = "@function.outer", desc = "Next function end" },
-            ["]I"] = { query = "@class.outer",    desc = "Next impl/class end" },
+            ["]I"] = { query = "@class.outer", desc = "Next impl/class end" },
           },
           goto_previous_start = {
             ["[f"] = { query = "@function.outer", desc = "Prev function" },
-            ["[i"] = { query = "@class.outer",    desc = "Prev impl/class" },
+            ["[i"] = { query = "@class.outer", desc = "Prev impl/class" },
             ["[a"] = { query = "@parameter.inner", desc = "Prev argument" },
           },
           goto_previous_end = {
             ["[F"] = { query = "@function.outer", desc = "Prev function end" },
-            ["[I"] = { query = "@class.outer",    desc = "Prev impl/class end" },
+            ["[I"] = { query = "@class.outer", desc = "Prev impl/class end" },
           },
         },
       },

@@ -41,6 +41,7 @@ return {
         build = "make install_jsregexp",
       },
       "hrsh7th/cmp-nvim-lsp",
+      "hrsh7th/cmp-nvim-lsp-signature-help",
       "hrsh7th/cmp-nvim-lua",
       "saadparwaiz1/cmp_luasnip", -- for autocompletion
       "rafamadriz/friendly-snippets", -- useful snippets
@@ -59,10 +60,16 @@ return {
         auto_brackets = {
           "rust",
         }, -- configure any filetype to auto add brackets
-        completion = {
-          completeopt = "menu,menuone,noinsert", --,noselect
+        performance = {
+          debounce = 0,
+          throttle = 0,
+          fetching_timeout = 200,
         },
-        preselect = cmp.PreselectMode.Item or cmp.PreselectMode.None,
+        completion = {
+          completeopt = "menu,menuone,noinsert,noselect",
+          keyword_length = 2, -- require 2 chars before triggering
+        },
+        preselect = cmp.PreselectMode.None,
         snippet = { -- configure how nvim-cmp interacts with snippet engine
           expand = function(args)
             luasnip.lsp_expand(args.body)
@@ -73,12 +80,39 @@ return {
           ["<C-d>"] = cmp.mapping.scroll_docs(4),
           ["<C-Space>"] = cmp.mapping.complete(), -- show completion suggestions
           ["<C-q>"] = cmp.mapping.abort(), -- close completion window
-          ["<CR>"] = cmp.mapping.confirm({ select = true }),
+          ["<Tab>"] = cmp.mapping(function(fallback)
+            if cmp.visible() then
+              cmp.confirm({ select = true }) -- picks top item if none selected
+            elseif luasnip.expand_or_jumpable() then
+              luasnip.expand_or_jump()
+            else
+              fallback() -- real <Tab>
+            end
+          end, { "i", "s" }),
+          ["<S-Tab>"] = cmp.mapping(function(fallback)
+            if cmp.visible() then
+              cmp.select_prev_item()
+            elseif luasnip.jumpable(-1) then
+              luasnip.jump(-1)
+            else
+              fallback()
+            end
+          end, { "i", "s" }),
+          -- <CR> confirms only when an item is explicitly selected
+          -- (via <C-n>/<S-Tab>); otherwise stays a real newline.
+          ["<CR>"] = cmp.mapping(function(fallback)
+            if cmp.visible() and cmp.get_selected_entry() then
+              cmp.confirm({ select = false })
+            else
+              fallback()
+            end
+          end, { "i", "s" }),
         }),
         -- sources for autocompletion
         sources = cmp.config.sources({
           -- { name = "copilot" },
           { name = "nvim_lsp" },
+          { name = "nvim_lsp_signature_help" },
           { name = "luasnip" }, -- snippets
           { name = "buffer" }, -- text within current buffer
           { name = "path" }, -- file system paths
@@ -117,7 +151,7 @@ return {
         ---@type vim.diagnostic.Opts
         diagnostics = {
           -- underline errors and warnings; hints/info don't need squiggles
-          underline = { severity = { min = vim.diagnostic.severity.WARN } },
+          underline = { severity = { min = vim.diagnostic.severity.WARN } },
           update_in_insert = false,
           virtual_text = false,
           severity_sort = true,
@@ -320,6 +354,12 @@ return {
             "gS",
             "<cmd>lua vim.lsp.buf.signature_help()<cr>",
             { buffer = event.buf, desc = "[lsp] Signature help" }
+          )
+          vim.keymap.set(
+            "n",
+            "gw",
+            "<cmd>Telescope lsp_dynamic_workspace_symbols<cr>",
+            { buffer = event.buf, desc = "[lsp] Workspace symbol" }
           )
           vim.keymap.set(
             "n",
@@ -529,7 +569,7 @@ return {
           enabled = true,
           open = "botright split | resize 15",
         },
-        -- summary opens left of code (right of nvim-tree when present)
+        -- summary opens left of code (right of explorer when present)
         summary = {
           open = "leftabove vsplit | vertical resize 40",
         },

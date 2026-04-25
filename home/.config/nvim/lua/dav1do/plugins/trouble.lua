@@ -9,7 +9,7 @@ return {
         position = "right",
         size = 0.33,
         relative = "win",
-        wo = { wrap = true },   -- wrap long diagnostics so full message is visible
+        wo = { wrap = true }, -- wrap long diagnostics so full message is visible
       },
       preview = {
         type = "main",
@@ -28,7 +28,7 @@ return {
         -- Pressing <cr> jumps to the item and closes the panel.
         refs = {
           mode = "lsp_references",
-          win  = { type = "split", position = "bottom", size = 0.3 },
+          win = { type = "split", position = "bottom", size = 0.3 },
           keys = {
             ["<cr>"] = "jump_close",
           },
@@ -37,7 +37,7 @@ return {
         -- auto_preview=false prevents the code window from jumping/scrolling
         -- as you navigate the symbol tree.
         symbols = {
-          win          = { type = "split", position = "right", size = 0.2, relative = "editor", wo = { winfixwidth = true } },
+          win = { type = "split", position = "right", size = 0.2, relative = "editor", wo = { winfixwidth = true } },
           auto_preview = false,
         },
       },
@@ -49,7 +49,9 @@ return {
     local symbols_opened = true --TODO: disabling auto-open symbols for now
     vim.api.nvim_create_autocmd("LspAttach", {
       callback = function()
-        if symbols_opened then return end
+        if symbols_opened then
+          return
+        end
         symbols_opened = true
         vim.schedule(function()
           require("trouble").open({ mode = "symbols", focus = false })
@@ -59,11 +61,31 @@ return {
   end,
   cmd = "Trouble",
   keys = {
-    { "<leader>td", "<cmd>Trouble diagnostics toggle focus=false<cr>",                        desc = "Diagnostics (Trouble)" },
-    { "<leader>tb", "<cmd>Trouble diagnostics toggle filter.buf=0 focus=false<cr>",          desc = "Buffer Diagnostics (Trouble)" },
-    { "<leader>ts", "<cmd>Trouble symbols toggle focus=false pinned=true<cr>",               desc = "Symbols (Trouble)" },
-    { "<leader>tl", "<cmd>Trouble lsp toggle focus=false<cr>",                               desc = "LSP Definitions / references (Trouble)" },
-    { "<leader>to", "<cmd>Trouble todo toggle<cr>",                                          desc = "TODOs (Trouble)" },
-    { "<leader>tf", "<cmd>Trouble todo toggle filter={tag={FIXME,BUG,HACK}}<cr>",            desc = "FIXMEs (Trouble)" },
+    {
+      "<leader>td",
+      "<cmd>Trouble diagnostics toggle focus=false<cr>",
+      desc = "Diagnostics (Trouble)",
+    },
+    {
+      "<leader>tb",
+      "<cmd>Trouble diagnostics toggle filter.buf=0 focus=false<cr>",
+      desc = "Buffer Diagnostics (Trouble)",
+    },
+    {
+      "<leader>ts",
+      "<cmd>Trouble symbols toggle focus=false pinned=true<cr>",
+      desc = "Symbols (Trouble)",
+    },
+    {
+      "<leader>tl",
+      "<cmd>Trouble lsp toggle focus=false<cr>",
+      desc = "LSP Definitions / references (Trouble)",
+    },
+    { "<leader>to", "<cmd>Trouble todo toggle<cr>", desc = "TODOs (Trouble)" },
+    {
+      "<leader>tf",
+      "<cmd>Trouble todo toggle filter={tag={FIXME,BUG,HACK}}<cr>",
+      desc = "FIXMEs (Trouble)",
+    },
   },
 }

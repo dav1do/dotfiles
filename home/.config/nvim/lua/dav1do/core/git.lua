@@ -4,7 +4,7 @@
 -- R = refresh  |  <CR> = open file under cursor  |  q = close
 local _gs_win, _gs_buf
 
-local _skip_ft = { NvimTree = true, trouble = true, qf = true, dbui = true, dbout = true, OverseerList = true }
+local _skip_ft = { snacks_explorer = true, trouble = true, qf = true, dbui = true, dbout = true, OverseerList = true }
 
 local function _gs_find_code_win()
   for _, win in ipairs(vim.api.nvim_list_wins()) do

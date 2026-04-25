@@ -1,11 +1,17 @@
+-- Dadbod disabled — using psql / DBeaver outside nvim for now.
+-- SQL syntax highlighting is handled by Neovim's built-in ftplugin
+-- (and treesitter if the `sql` parser is installed), not by dadbod.
+-- Flip `enabled = false` back to remove (or delete this file) to re-enable.
 return {
   {
     "tpope/vim-dadbod",
+    enabled = false,
     lazy = true,
     ft = { "sql", "mysql", "plsql" },
   },
   {
     "kristijanhusak/vim-dadbod-ui",
+    enabled = false,
     dependencies = {
       "tpope/vim-dadbod",
       { "kristijanhusak/vim-dadbod-completion", ft = { "sql", "mysql", "plsql" }, lazy = true },
@@ -15,13 +21,13 @@ return {
       { "<leader>B", "<cmd>DBUIToggle<cr>", desc = "Database UI" },
     },
     init = function()
-      vim.g.db_ui_use_nerd_fonts             = 1
+      vim.g.db_ui_use_nerd_fonts = 1
       vim.g.db_ui_auto_execute_table_helpers = 1
       vim.g.db_ui_disable_info_notifications = 1
-      vim.g.db_ui_use_nvim_notify            = 1
-      vim.g.db_ui_execute_on_save            = 0
-      vim.g.db_ui_winwidth                   = 30
-      vim.g.db_ui_env_variable_url           = "DATABASE_URL"
+      vim.g.db_ui_use_nvim_notify = 1
+      vim.g.db_ui_execute_on_save = 0
+      vim.g.db_ui_winwidth = 30
+      vim.g.db_ui_env_variable_url = "DATABASE_URL"
     end,
     config = function()
       -- Result window: focus it when it opens, q to close

@@ -114,10 +114,10 @@ return {
     {
       "<C-p>",
       function()
-        require("telescope.builtin").find_files()
+        Snacks.picker.files()
       end,
       mode = { "n" },
-      desc = "Find files (fast, respects gitignore, includes untracked)",
+      desc = "Find files",
     },
     {
       "<leader>pl",

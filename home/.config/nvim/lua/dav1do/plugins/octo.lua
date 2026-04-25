@@ -1,5 +1,6 @@
 return {
   "pwntester/octo.nvim",
+  enabled = false, -- replaced by snacks gh
   dependencies = {
     "nvim-lua/plenary.nvim",
     "nvim-telescope/telescope.nvim",
@@ -16,7 +17,7 @@ return {
     { "<leader>lR", "<cmd>Octo review start<cr>",            desc = "Review files (PR)" },
   },
   opts = {
-    picker        = "telescope",
+    picker = "telescope",
     enable_builtin = true,
     -- review comment threads open above the diff instead of below
     reviews = {

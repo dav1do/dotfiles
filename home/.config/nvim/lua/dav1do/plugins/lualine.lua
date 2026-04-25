@@ -1,6 +1,6 @@
 return {
-  'nvim-lualine/lualine.nvim',
-  dependencies = { 'nvim-tree/nvim-web-devicons' },
+  "nvim-lualine/lualine.nvim",
+  dependencies = { "nvim-tree/nvim-web-devicons" },
   config = function()
     require("lualine").setup({
       sections = {
@@ -8,8 +8,12 @@ return {
         lualine_a = {
           "mode",
           {
-            function() return " REC @" .. vim.fn.reg_recording() end,
-            cond = function() return vim.fn.reg_recording() ~= "" end,
+            function()
+              return " REC @" .. vim.fn.reg_recording()
+            end,
+            cond = function()
+              return vim.fn.reg_recording() ~= ""
+            end,
             color = { fg = "#000000", bg = "#ff9e64", gui = "bold" },
           },
         },
@@ -18,8 +22,12 @@ return {
         lualine_x = {
           -- noice mode (command-line messages like :%s/ confirmation prompts)
           {
-            function() return require("noice").api.statusline.mode.get() end,
-            cond = function() return require("noice").api.statusline.mode.has() end,
+            function()
+              return require("noice").api.statusline.mode.get()
+            end,
+            cond = function()
+              return require("noice").api.statusline.mode.has()
+            end,
             color = { fg = "#ff9e64" },
           },
           -- Overseer task status
@@ -42,5 +50,5 @@ return {
         lualine_z = { "location" },
       },
     })
-  end
+  end,
 }
