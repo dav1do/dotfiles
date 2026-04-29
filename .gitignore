@@ -45,3 +45,6 @@ luac.out
 *.hex
 
 nvim.log
+nvim.log
+
+.DS_Store

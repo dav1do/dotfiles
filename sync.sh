@@ -50,6 +50,9 @@ for dir in "${CONFIG_DIRS[@]}"; do
     src="$HOME/.config/$dir"
     if [[ -d "$src" ]]; then
         copy_dir "$src" "$DOTFILES/home/.config/$dir"
+        # dotfiles is the permanent track; any nested .git in the
+        # destination is a local-only artifact that shouldn't live here.
+        rm -rf "$DOTFILES/home/.config/$dir/.git"
         echo "    $dir"
     else
         echo "    $dir (not found, skipping)"

@@ -180,5 +180,5 @@ if [ -f '/Users/david/bin/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users
 export PATH="$HOME/.local/bin:$PATH"
 
 # Claude Code
-export CLAUDE_CODE_NO_FLICKER=1
+# export CLAUDE_CODE_NO_FLICKER=1 # this breaks normal mode scrollback (without using c-o transcript)
 export CLAUDE_CODE_DISABLE_MOUSE=1
