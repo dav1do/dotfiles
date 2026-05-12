@@ -14,7 +14,7 @@ return {
   opts = {
     format_on_save = function(bufnr)
       local ft = vim.bo[bufnr].filetype
-      local always = { rust = true, lua = true, toml = true, python = true }
+      local always = { rust = true, lua = true, toml = true, python = true, bash = true, sh = true }
       if always[ft] then
         return { timeout_ms = 1000, lsp_format = "fallback" }
       end
@@ -64,8 +64,13 @@ return {
       taplo = {
         append_args = { "-o", "indent_string=    " },
       },
+      shfmt = {
+        prepend_args = { "-i", "2", "-ci", "-bn" },
+      },
     },
     formatters_by_ft = {
+      bash = { "shfmt" },
+      sh = { "shfmt" },
       json = { "prettier" },
       lua = { "stylua" },
       markdown = { "prettier" },

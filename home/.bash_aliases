@@ -1,5 +1,11 @@
 alias vim='nvim'
 
+# history shortcuts (formerly from omz `history` plugin)
+alias h='history'
+alias hl='history | less'
+alias hs='history | grep'
+alias hsi='history | grep -i'
+
 alias ls='lsd'
 alias ll='ls -al'
 alias la='ls -A'

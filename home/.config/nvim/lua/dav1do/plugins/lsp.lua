@@ -143,6 +143,7 @@ return {
       { "hrsh7th/cmp-nvim-lsp" },
       { "williamboman/mason.nvim" },
       { "williamboman/mason-lspconfig.nvim" },
+      { "b0o/SchemaStore.nvim", lazy = true, version = false },
     },
     opts = function()
       ---@class PluginLspOpts
@@ -240,6 +241,23 @@ return {
                   propertyDeclarationTypes = { enabled = true },
                   variableTypes = { enabled = false },
                 },
+              },
+            },
+          },
+          jsonls = {
+            settings = {
+              json = {
+                schemas = require("schemastore").json.schemas(),
+                validate = { enable = true },
+              },
+            },
+          },
+          yamlls = {
+            settings = {
+              yaml = {
+                -- disable built-in schemaStore; SchemaStore.nvim is more up to date
+                schemaStore = { enable = false, url = "" },
+                schemas = require("schemastore").yaml.schemas(),
               },
             },
           },
@@ -404,6 +422,9 @@ return {
           "cssls",
           "vtsls",
           "bashls",
+          "marksman",
+          "jsonls",
+          "yamlls",
         },
         handlers = {
           -- default handler: applies server-specific opts from the opts.servers table
@@ -529,7 +550,7 @@ return {
       -- You'll need to check that you have the required things installed
       -- online, please don't ask me how to install them :)
       ensure_installed = {
-        -- Update this to ensure that you have the debuggers for the langs you want
+        "codelldb",
       },
     },
   },

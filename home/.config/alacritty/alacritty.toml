@@ -163,6 +163,7 @@ mods = "Alt"
 
 [window]
 opacity = 0.98
+option_as_alt = "Both"
 
 [window.dimensions]
 columns = 120

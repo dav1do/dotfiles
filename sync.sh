@@ -28,6 +28,7 @@ copy_dir() {
 # ── ~/.config directories ──
 CONFIG_DIRS=(
     alacritty
+    ghostty
     git
     nvim
     sesh
@@ -63,6 +64,12 @@ done
 if [[ -d "$HOME/.config/tmux" ]]; then
     copy_dir "$HOME/.config/tmux" "$DOTFILES/home/.config/tmux" plugins
     echo "    tmux"
+fi
+
+# helix: skip runtime (symlink to built-from-source runtime tree)
+if [[ -d "$HOME/.config/helix" ]]; then
+    copy_dir "$HOME/.config/helix" "$DOTFILES/home/.config/helix" runtime
+    echo "    helix"
 fi
 
 echo "==> Syncing home files..."

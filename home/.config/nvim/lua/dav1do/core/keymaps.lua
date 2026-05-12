@@ -48,7 +48,7 @@ vim.keymap.set("n", "<S-l>", "<cmd>bnext<cr>", { desc = "Next Buffer" })
 
 -- <Esc> exits terminal mode for plain shell terminals (psql, generic shell).
 -- TUI apps that use <Esc> internally are excluded:
---   claude  → uses <C-e> instead (see claude.lua) to avoid cancelling the process
+--   claude  → uses <C-x> instead (see claude.lua) to avoid cancelling the process
 --   lazygit → uses <Esc> for panel navigation; use <C-\><C-n> to escape if needed
 local tui_patterns = { "claude", "lazygit" }
 ---@diagnostic disable-next-line: param-type-mismatch

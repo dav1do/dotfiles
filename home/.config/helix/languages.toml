@@ -1,0 +1,85 @@
+[language-server.rust-analyzer.config]
+checkOnSave = true
+procMacro.enable = true
+
+[language-server.rust-analyzer.config.cargo]
+allFeatures = false
+loadOutDirsFromCheck = true
+buildScripts = { enable = true }
+
+[language-server.rust-analyzer.config.check]
+command = "clippy"
+
+[language-server.rust-analyzer.config.diagnostics]
+disabled = ["inactive-code", "unresolved-proc-macro", "syntax-error", "unresolved-macro-call"]
+
+[language-server.rust-analyzer.config.files]
+exclude = [".direnv", ".devenv", "target", "node_modules", "nix"]
+
+[language-server.rust-analyzer.config.inlayHints]
+closureReturnTypeHints = { enable = "with_block" }
+lifetimeElisionHints = { enable = "skip_trivial" }
+typeHints = { enable = true }
+bindingModeHints = { enable = true }
+closureCaptureHints = { enable = true }
+
+[[language]]
+name = "rust"
+auto-format = true
+
+[[language]]
+name = "typescript"
+language-servers = ["vtsls"]
+auto-format = true
+formatter = { command = "prettier", args = ["--parser", "typescript"] }
+
+[[language]]
+name = "tsx"
+language-servers = ["vtsls"]
+auto-format = true
+formatter = { command = "prettier", args = ["--parser", "typescript"] }
+
+[language-server.vtsls]
+command = "vtsls"
+args = ["--stdio"]
+
+[[language]]
+name = "javascript"
+auto-format = true
+formatter = { command = "prettier", args = ["--parser", "babel"] }
+
+[[language]]
+name = "jsx"
+auto-format = true
+formatter = { command = "prettier", args = ["--parser", "babel"] }
+
+[[language]]
+name = "json"
+auto-format = true
+language-servers = [{ name = "vscode-json-language-server", except-features = ["format"] }]
+formatter = { command = "prettier", args = ["--parser", "json"] }
+
+[[language]]
+name = "lua"
+auto-format = true
+formatter = { command = "stylua", args = ["-"] }
+
+[[language]]
+name = "python"
+auto-format = true
+formatter = { command = "ruff", args = ["format", "-"] }
+
+[[language]]
+name = "toml"
+auto-format = true
+formatter = { command = "taplo", args = ["fmt", "-o", "indent_string=    ", "-"] }
+
+[[language]]
+name = "markdown"
+auto-format = true
+formatter = { command = "prettier", args = ["--parser", "markdown"] }
+
+[[language]]
+name = "bash"
+auto-format = true
+formatter = { command = "shfmt", args = ["-i", "2", "-ci", "-bn"] }

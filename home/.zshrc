@@ -9,7 +9,7 @@ setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_FIND_NO_DUPS
 
 # in case nvim is installed from source
-export PATH="$(brew --prefix)/opt/llvm/bin":"$HOME/bin":"$HOME/bin/nvim/bin":"/Users/david/.codeium/windsurf/bin":$PATH
+export PATH="/opt/homebrew/opt/llvm/bin":"$HOME/bin":"$HOME/bin/nvim/bin":"/Users/david/.codeium/windsurf/bin":$PATH
 
 # ignore ctrl+d
 set -o ignoreeof
@@ -78,12 +78,35 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(aws history rust zsh-autosuggestions git docker docker-compose zsh-syntax-highlighting web-search ssh-agent)
+# ── Plugin selection (feature-detected; same .zshrc across machines) ────────
+plugins=(rust git zsh-autosuggestions zsh-syntax-highlighting)
 
-# zstyle :omz:plugins:ssh-agent agent-forwarding yes
-zstyle :omz:plugins:ssh-agent quiet yes 
-zstyle :omz:plugins:ssh-agent lazy yes 
-zstyle :omz:plugins:ssh-agent ssh-add-args --apple-load-keychain 
+command -v docker >/dev/null && plugins+=(docker docker-compose)
+command -v aws    >/dev/null && plugins+=(aws)
+
+# gcloud: omz plugin doesn't search ~/bin; point it at the SDK if present.
+if [[ -d "$HOME/bin/google-cloud-sdk" ]]; then
+  export CLOUDSDK_HOME="$HOME/bin/google-cloud-sdk"
+  plugins+=(gcloud)
+elif command -v gcloud >/dev/null; then
+  plugins+=(gcloud)
+fi
+
+# ssh-agent only on machines with SSH keys configured.
+if [[ -n "$(ls $HOME/.ssh/id_* 2>/dev/null)" ]]; then
+  zstyle :omz:plugins:ssh-agent quiet yes
+  zstyle :omz:plugins:ssh-agent lazy yes
+  zstyle :omz:plugins:ssh-agent ssh-add-args --apple-load-keychain
+  plugins+=(ssh-agent)
+fi
+
+# Docker CLI completions to fpath (only if Docker Desktop installed them).
+[[ -d "$HOME/.docker/completions" ]] && fpath=("$HOME/.docker/completions" $fpath)
+
+# Skip compinit security audit + dump-freshness check (single-user Mac).
+# Run `rm ~/.zcompdump* && exec zsh` if a new completion isn't showing up.
+export ZSH_DISABLE_COMPFIX=true
+
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
@@ -100,9 +123,11 @@ source $ZSH/oh-my-zsh.sh
 # else
 #   export EDITOR='mvim'
 # fi
-export EDITOR="nvim"
-export VISUAL="nvim"
-export MANPAGER='nvim +Man!'
+export EDITOR="hx"
+export VISUAL="hx"
+#export MANPAGER='nvim +Man!'
+export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+export MANROFFOPT="-c"   # avoids garbled output on some systems
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
 
@@ -119,34 +144,30 @@ if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
 fi
 
-# update RA for nvim to work (rustaceanvim/lsp config says don't use mason cause it's old, as is rustup version)
-function update_latest_rust_analyzer() {
-  # Find directories matching the rust-analyzer pattern, sort by version, and get the newest
-  # .vscode or .windsurf depending on editor
-  latest_version=$(find ~/.windsurf/extensions -name rust-analyzer | sort -V | tail -n 1)
-  if [[ -n $latest_version ]]; then
-    # only update if it's new
-    if [[ -z $(ls -l ~/bin | rg $latest_version) ]]; then
-      rm -f "$HOME/bin/rust-analyzer"
-      ln -s $latest_version "$HOME/bin/rust-analyzer"
-      fi
-  fi
-}
-update_latest_rust_analyzer
-
 # rust
 RUST_BACKTRACE=1
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-eval "$(zoxide init zsh)"
+command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
 
 [ -f "/Users/david/.ghcup/env" ] && source "/Users/david/.ghcup/env" # ghcup-env
 
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+# Lazy-load nvm — sourcing nvm.sh eagerly costs ~200ms per shell.
+# First call to any of these stubs sources nvm and re-runs the command.
+if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+  _nvm_lazy_load() {
+    unset -f nvm node npm npx
+    \. "$NVM_DIR/nvm.sh"
+    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+  }
+  nvm()  { _nvm_lazy_load; nvm "$@"; }
+  node() { _nvm_lazy_load; node "$@"; }
+  npm()  { _nvm_lazy_load; npm "$@"; }
+  npx()  { _nvm_lazy_load; npx "$@"; }
+fi
 
 [[ $commands[kubectl] ]] && source <(kubectl completion zsh)
 
@@ -155,30 +176,34 @@ if tty -s; then
 fi
 
 # Set up fzf key bindings and fuzzy completion
-source <(fzf --zsh)
+command -v fzf >/dev/null && source <(fzf --zsh)
 
-# Nix
-
-if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
-  . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+# direnv — 2.37.1 still prints "loading .envrc" + "export +VAR1..." to stderr.
+# Override the hook to swallow stderr; stdout (the eval'd env exports) still flows.
+if command -v direnv >/dev/null; then
+  eval "$(direnv hook zsh)"
+  _direnv_hook() {
+    trap -- '' SIGINT
+    eval "$(command direnv export zsh 2>/dev/null)"
+    trap - SIGINT
+  }
 fi
-# End Nix
-# direnv
-eval "$(direnv hook zsh)"
-# end direnv
-# The following lines have been added by Docker Desktop to enable Docker CLI completions.
-fpath=(/Users/david/.docker/completions $fpath)
-autoload -Uz compinit
-compinit
-# End of Docker CLI completions
 
-# The next line updates PATH for the Google Cloud SDK.
-if [ -f '/Users/david/bin/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/david/bin/google-cloud-sdk/path.zsh.inc'; fi
-
-# The next line enables shell command completion for gcloud.
-if [ -f '/Users/david/bin/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/david/bin/google-cloud-sdk/completion.zsh.inc'; fi
 export PATH="$HOME/.local/bin:$PATH"
 
+function y() {
+  local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+  yazi "$@" --cwd-file="$tmp"
+  if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+    builtin cd -- "$cwd"
+  fi
+  rm -f -- "$tmp"
+}
+
 # Claude Code
-# export CLAUDE_CODE_NO_FLICKER=1 # this breaks normal mode scrollback (without using c-o transcript)
+export CLAUDE_CODE_NO_FLICKER=1 # this breaks normal mode scrollback (without using c-o transcript)
 export CLAUDE_CODE_DISABLE_MOUSE=1
+
+# Per-machine overrides — paths, secrets, work-only aliases (keep out of dotfiles repo).
+[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
+
