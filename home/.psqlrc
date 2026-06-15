@@ -1,0 +1,20 @@
+-- ~/.psqlrc — defaults for interactive psql sessions
+
+\set QUIET 1
+
+\timing on
+\x auto
+\pset null 'NULL'
+\pset linestyle unicode
+\pset border 2
+\setenv PAGER 'less -SFX'
+
+\set HISTFILE ~/.psql_history- :DBNAME
+\set HISTSIZE 10000
+\set HISTCONTROL ignoredups
+
+\set ON_ERROR_ROLLBACK interactive
+\set COMP_KEYWORD_CASE upper
+\set VERBOSITY verbose
+
+\unset QUIET

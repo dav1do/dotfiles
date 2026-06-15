@@ -156,5 +156,4 @@ source <(kubectl completion zsh)
 source <(cpk completion zsh)
 export GPG_TTY=$(tty)
 
-# Added by Windsurf
 export PATH="/Users/david/.codeium/windsurf/bin:$PATH"

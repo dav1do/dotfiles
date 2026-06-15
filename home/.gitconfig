@@ -6,11 +6,24 @@
         name = David Estes
         email = 5317198+dav1do@users.noreply.github.com 
 	signingkey = C3EACD65B4D7E164 
-[commmit]
-        gpgsign = true
 [commit]
 	gpgsign = true
 [tag]
 	gpgSign = true
 [credential "https://dev.azure.com"]
 	useHttpPath = true
+[core]
+	pager = delta
+[interactive]
+	diffFilter = delta --color-only
+[delta]
+	navigate = true
+	side-by-side = true
+	minus-style = "syntax \"#3a2a2c\""
+	minus-emph-style = "syntax bold \"#7a3a3c\""
+	plus-style = "syntax \"#2a3a2c\""
+	plus-emph-style = "syntax bold \"#3a7a3c\""
+	keep-plus-minus-markers = true
+	syntax-theme = "gruvbox-dark"
+[merge]
+	conflictStyle = zdiff3

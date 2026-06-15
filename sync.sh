@@ -40,6 +40,8 @@ HOME_FILES=(
     .gitconfig
     .gitignore
     .p10k.zsh
+    .psqlrc
+    .sqliterc
     .tmux.conf
     .zprofile
     .zshenv

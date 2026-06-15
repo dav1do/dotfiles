@@ -1,0 +1,7 @@
+-- ~/.sqliterc — defaults for interactive sqlite3 sessions
+
+.headers on
+.mode box
+.timer on
+.nullvalue NULL
+.changes on
