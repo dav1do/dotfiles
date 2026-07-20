@@ -25,13 +25,15 @@ copy_dir() {
     done
 }
 
-# ── ~/.config directories ──
+# ── ~/.config directories (dir-name [extra excludes...]) ──
 CONFIG_DIRS=(
     alacritty
     ghostty
     git
     nvim
     sesh
+    "tmux plugins"   # skip plugins — managed by tpm
+    "helix runtime"  # skip runtime — symlink to built-from-source tree
 )
 
 # ── ~/ dotfiles (copied to home/) ──
@@ -42,17 +44,18 @@ HOME_FILES=(
     .p10k.zsh
     .psqlrc
     .sqliterc
-    .tmux.conf
     .zprofile
     .zshenv
     .zshrc
 )
 
 echo "==> Syncing ~/.config directories..."
-for dir in "${CONFIG_DIRS[@]}"; do
+for entry in "${CONFIG_DIRS[@]}"; do
+    set -- $entry                 # word-split: $1=dir, remainder=extra excludes
+    dir="$1"; shift
     src="$HOME/.config/$dir"
     if [[ -d "$src" ]]; then
-        copy_dir "$src" "$DOTFILES/home/.config/$dir"
+        copy_dir "$src" "$DOTFILES/home/.config/$dir" "$@"
         # dotfiles is the permanent track; any nested .git in the
         # destination is a local-only artifact that shouldn't live here.
         rm -rf "$DOTFILES/home/.config/$dir/.git"
@@ -61,18 +64,6 @@ for dir in "${CONFIG_DIRS[@]}"; do
         echo "    $dir (not found, skipping)"
     fi
 done
-
-# tmux: skip plugins (managed by tpm)
-if [[ -d "$HOME/.config/tmux" ]]; then
-    copy_dir "$HOME/.config/tmux" "$DOTFILES/home/.config/tmux" plugins
-    echo "    tmux"
-fi
-
-# helix: skip runtime (symlink to built-from-source runtime tree)
-if [[ -d "$HOME/.config/helix" ]]; then
-    copy_dir "$HOME/.config/helix" "$DOTFILES/home/.config/helix" runtime
-    echo "    helix"
-fi
 
 echo "==> Syncing home files..."
 for file in "${HOME_FILES[@]}"; do

@@ -76,6 +76,9 @@ A-k = [
 C-e = "scroll_down"
 C-y = "scroll_up"
 
+[keys.insert]
+C-s = [":w", "normal_mode"]
+
 [keys.select]
 A-j = ["extend_to_line_bounds", "delete_selection", "paste_after"]
 A-k = [

@@ -3,7 +3,7 @@
 [[session]]
 name = "dev"
 path = "~/ukon"
-startup_command = "~/.config/sesh/scripts/two-windows.sh"
+startup_command = "~/.config/sesh/scripts/work.sh"
 
 [[session]]
 name = "ukon-core"

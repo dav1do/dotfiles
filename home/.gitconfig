@@ -10,8 +10,6 @@
 	gpgsign = true
 [tag]
 	gpgSign = true
-[credential "https://dev.azure.com"]
-	useHttpPath = true
 [core]
 	pager = delta
 [interactive]
@@ -27,3 +25,5 @@
 	syntax-theme = "gruvbox-dark"
 [merge]
 	conflictStyle = zdiff3
+[credential "https://dev.azure.com"]
+	useHttpPath = true

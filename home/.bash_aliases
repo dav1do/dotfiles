@@ -18,11 +18,8 @@ alias locate='mdfind' # spotlight on mac
 alias lhr='lefthook run'
 
 alias wsl_ssh_ip='arp -a | rg "2c:f0:5d:f0:42:ed"'
-# alias vi='nvim'
-# alias vim='nvim'
 
-# after upgrading alacritty, if it won't open, run: 
-alias alacritty_auth='xattr -rd com.apple.quarantine /Applications/Alacritty.app'
+# after upgrading alacritty, if it won't open, run:
 alias install_nvim_nightly='make CMAKE_BUILD_TYPE=RelWithDebInfo CMAKE_INSTALL_PREFIX=$HOME/bin/nvim install'
 
 # git, you git
@@ -43,7 +40,7 @@ alias gs='git status'
 alias gch='git checkout'
 alias gcm='git commit -m'
 alias gca='git commit --amend --no-edit'
-alias gl='git log --graph --pretty=format:'\''%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'\'' --abbrev-commit'
+alias gl='git log --graph --pretty=format:'\''%Cred%h%Creset %C(magenta)%G?%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'\'' --abbrev-commit'
 alias gpsup='git push --set-upstream origin $(git_current_branch)'
 
 alias tf='terraform'
@@ -60,4 +57,3 @@ if [ -x /usr/bin/dircolors ]; then
   alias fgrep='fgrep --color=auto'
   alias egrep='egrep --color=auto'
 fi
-

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# tmux-send-pane <pane-id> — move a pane into another session (as a split).
+# The pane id is passed by the tmux binding (#{pane_id}) so it's the *real*
+# active pane, not this popup's pane. We stay put; the pane moves away.
+set -euo pipefail
+
+pane="${1:?usage: tmux-send-pane <pane-id>}"
+cur="$(tmux display-message -t "$pane" -p '#{session_name}')"
+
+others="$(tmux list-sessions -F '#{session_name}' | grep -vFx "$cur" || true)"
+if [ -z "$others" ]; then
+  echo "no other session to send this pane to — create one first." >&2
+  read -rp "press enter to close…" _
+  exit 0
+fi
+
+target="$(printf '%s\n' "$others" | fzf --prompt 'send pane → ' --reverse --height 100% --border)" || exit 0
+[ -n "${target:-}" ] || exit 0
+
+# Join into the target session's current window (":" = current window).
+# -h = side-by-side; swap to -v for a stacked split.
+tmux join-pane -h -s "$pane" -t "$target:"

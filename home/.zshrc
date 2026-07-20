@@ -151,22 +151,26 @@ RUST_BACKTRACE=1
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
+# `zi` interactive picker: preview dir contents with lsd. {2..} skips zoxide's score column.
+export _ZO_FZF_OPTS="--height 40% --reverse --preview 'lsd -a --color=always {2..}' --preview-window=right:50%"
 
 [ -f "/Users/david/.ghcup/env" ] && source "/Users/david/.ghcup/env" # ghcup-env
 
 export NVM_DIR="$HOME/.nvm"
 # Lazy-load nvm — sourcing nvm.sh eagerly costs ~200ms per shell.
 # First call to any of these stubs sources nvm and re-runs the command.
+# Helper is double-underscored so Claude Code's shell snapshot keeps it
+# (it strips single-underscore "private" functions, which breaks the stubs).
 if [[ -s "$NVM_DIR/nvm.sh" ]]; then
-  _nvm_lazy_load() {
-    unset -f nvm node npm npx
+  __nvm_lazy_load() {
+    unset -f nvm node npm npx __nvm_lazy_load
     \. "$NVM_DIR/nvm.sh"
     [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
   }
-  nvm()  { _nvm_lazy_load; nvm "$@"; }
-  node() { _nvm_lazy_load; node "$@"; }
-  npm()  { _nvm_lazy_load; npm "$@"; }
-  npx()  { _nvm_lazy_load; npx "$@"; }
+  nvm()  { __nvm_lazy_load; nvm "$@"; }
+  node() { __nvm_lazy_load; node "$@"; }
+  npm()  { __nvm_lazy_load; npm "$@"; }
+  npx()  { __nvm_lazy_load; npx "$@"; }
 fi
 
 [[ $commands[kubectl] ]] && source <(kubectl completion zsh)
@@ -176,6 +180,10 @@ if tty -s; then
 fi
 
 # Set up fzf key bindings and fuzzy completion
+export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border"
+# Ctrl-T (insert path): bat preview for files, lsd for dirs. Alt-C (cd into subdir): lsd preview.
+export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers {} 2>/dev/null || lsd -a --color=always {}'"
+export FZF_ALT_C_OPTS="--preview 'lsd -a --color=always {}'"
 command -v fzf >/dev/null && source <(fzf --zsh)
 
 # direnv — 2.37.1 still prints "loading .envrc" + "export +VAR1..." to stderr.
@@ -203,6 +211,9 @@ function y() {
 # Claude Code
 export CLAUDE_CODE_NO_FLICKER=1 # this breaks normal mode scrollback (without using c-o transcript)
 export CLAUDE_CODE_DISABLE_MOUSE=1
+
+# Devin CLI
+# export DEVIN_SANDBOX=true
 
 # Per-machine overrides — paths, secrets, work-only aliases (keep out of dotfiles repo).
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local

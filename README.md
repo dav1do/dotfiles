@@ -8,6 +8,7 @@ CLI:
 
 - core: `brew install lsd ripgrep bat fd sd zoxide fzf glow tlrc jq`
 - dev: `brew install gh git-credential-manager lazygit direnv`
+- gh extensions: `gh extension install dlvhdr/gh-dash` (PR/issue dashboard; bound to `prefix+h` in tmux)
 - editors: `brew install helix` (or build from source); neovim from source (see [prereqs](https://github.com/neovim/neovim/blob/master/BUILD.md#macos))
 - file managers: `brew install yazi lf`
 - formatters: `brew install prettier shfmt stylua taplo ruff`
@@ -33,6 +34,8 @@ tmux:
 
 - plugin manager (tpm): https://github.com/tmux-plugins/tpm
 - catppuccin theme: https://github.com/catppuccin/tmux
+- plugins install with `prefix+I` after tpm is set up
+- tmux-thumbs (hint-copy, `prefix+f`): Rust plugin — needs `cargo` (from the Rust toolchain below) to build on first install
 
 Rust toolchain (for `rust-analyzer` in helix/nvim):
 
