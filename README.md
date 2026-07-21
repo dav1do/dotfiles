@@ -8,7 +8,9 @@ CLI:
 
 - core: `brew install lsd ripgrep bat fd sd zoxide fzf glow tlrc jq`
 - dev: `brew install gh git-credential-manager lazygit direnv`
-- gh extensions: `gh extension install dlvhdr/gh-dash` (PR/issue dashboard; bound to `prefix+h` in tmux)
+- gh extensions:
+    - `gh extension install dlvhdr/gh-dash` (PR/issue dashboard; bound to `prefix+h` in tmux)
+    - `gh extension install dlvhdr/gh-enhance` (CI detail TUI for a PR; bound to `T` in gh-dash — see the `enhance` keybinding in `home/.config/gh-dash/config.yml`)
 - editors: `brew install helix` (or build from source); neovim from source (see [prereqs](https://github.com/neovim/neovim/blob/master/BUILD.md#macos))
 - file managers: `brew install yazi lf`
 - formatters: `brew install prettier shfmt stylua taplo ruff`

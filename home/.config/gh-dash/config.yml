@@ -1,0 +1,61 @@
+prSections:
+    - title: My Pull Requests
+      filters: is:open author:@me
+    - title: Needs My Review
+      filters: is:open review-requested:@me
+    - title: Org (titan-index)
+      filters: is:open org:titan-index sort:updated-desc
+    - title: Recently Merged
+      filters: is:merged org:titan-index sort:updated-desc
+    - title: Commented
+      filters: is:open commenter:@me
+    - title: Involved
+      filters: is:open involves:@me -author:@me
+notificationsSections:
+    - title: Review Requested
+      filters: reason:review-requested
+    - title: Mentioned
+      filters: reason:mention
+    - title: Participating
+      filters: reason:participating
+    - title: Assigned
+      filters: reason:assign
+    - title: All
+      filters: ""
+keybindings:
+    universal:
+        # g = open lazygit for the selected row's repo (uses repoPaths)
+        - key: g
+          name: lazygit
+          command: cd {{.RepoPath}} && lazygit
+    notifications:
+        - key: d
+          builtin: markAsDone
+        - key: D
+          builtin: markAllAsDone
+    prs:
+        # m = squash + delete branch, with a y/N confirmation (shadows the builtin)
+        - key: m
+          name: squash-merge
+          command: >-
+            printf 'Squash-merge + delete branch for #%s in %s? [y/N] ' {{.PrNumber}} {{.RepoName}};
+            read ans;
+            case "$ans" in
+            [yY]*) gh pr merge {{.PrNumber}} -R {{.RepoName}} --squash --delete-branch;;
+            *) echo "aborted.";;
+            esac
+        # M = interactive merge fallback (pick method / merge-commit / rebase / admin)
+        - key: M
+          builtin: merge
+        # C = check out the PR branch locally
+        - key: C
+          builtin: checkout
+        # T = drill into this PR's CI detail (checks/jobs/steps/logs, re-run)
+        - key: T
+          name: enhance
+          command: gh enhance -R {{.RepoName}} {{.PrNumber}}
+repoPaths:
+    titan-index/*: /Users/david/ukon/*
+    # folder is lowercased; exact match overrides the wildcard
+    titan-index/RiskScore: /Users/david/ukon/riskscore
+    dav1do/dotfiles: /Users/david/mystuff/dotfiles

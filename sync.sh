@@ -28,6 +28,7 @@ copy_dir() {
 # ── ~/.config directories (dir-name [extra excludes...]) ──
 CONFIG_DIRS=(
     alacritty
+    gh-dash
     ghostty
     git
     nvim
