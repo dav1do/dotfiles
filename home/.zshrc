@@ -83,6 +83,7 @@ plugins=(rust git zsh-autosuggestions zsh-syntax-highlighting)
 
 command -v docker >/dev/null && plugins+=(docker docker-compose)
 command -v aws    >/dev/null && plugins+=(aws)
+command -v gh     >/dev/null && plugins+=(gh)
 
 # gcloud: omz plugin doesn't search ~/bin; point it at the SDK if present.
 if [[ -d "$HOME/bin/google-cloud-sdk" ]]; then

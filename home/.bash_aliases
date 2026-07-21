@@ -12,6 +12,7 @@ alias la='ls -A'
 alias l='ls -CF'
 
 alias lg='lazygit'
+alias ws='windsurf'
 
 alias locate='mdfind' # spotlight on mac
 
@@ -22,26 +23,15 @@ alias wsl_ssh_ip='arp -a | rg "2c:f0:5d:f0:42:ed"'
 # after upgrading alacritty, if it won't open, run:
 alias install_nvim_nightly='make CMAKE_BUILD_TYPE=RelWithDebInfo CMAKE_INSTALL_PREFIX=$HOME/bin/nvim install'
 
-# git, you git
-git_current_branch() {
-  local ref
-  ref=$(__git_prompt_git symbolic-ref --quiet HEAD 2>/dev/null)
-  local ret=$?
-  if [[ $ret != 0 ]]; then
-    [[ $ret == 128 ]] && return
-    ref=$(__git_prompt_git rev-parse --short HEAD 2>/dev/null) || return
-  fi
-  echo ${ref#refs/heads/}
-}
-
-alias unwip='git reset HEAD~1'
-alias ga='git add .'
+# additions (omz has no bare `gs`/`unwip`)
 alias gs='git status'
-alias gch='git checkout'
-alias gcm='git commit -m'
-alias gca='git commit --amend --no-edit'
+alias unwip='git reset HEAD~1'   # omz's gunwip is safer (only resets if HEAD is a --wip--)
+
+# overrides (omz uses these names for other things — keep mine)
+# alias ga='git add .'                     # omz: git add
+alias gcm='git commit -m'                 # omz: git checkout main  ⚠️
+alias gca='git commit --amend --no-edit'  # omz: git commit -v -a
 alias gl='git log --graph --pretty=format:'\''%Cred%h%Creset %C(magenta)%G?%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'\'' --abbrev-commit'
-alias gpsup='git push --set-upstream origin $(git_current_branch)'
 
 alias tf='terraform'
 
