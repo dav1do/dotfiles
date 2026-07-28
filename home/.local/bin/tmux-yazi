@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Open yazi in a tmux popup and, on quit, cd the *originating* pane to
+# wherever you ended up. A popup is its own process tree, so yazi's
+# --cwd-file has to be relayed back to the pane by hand.
+#
+# Usage: tmux-yazi <pane-id>          (bound to prefix-e in tmux.conf)
+#
+# The pane id must be expanded by tmux before this runs — display-popup does
+# not expand #{...} in its shell-command, so tmux.conf wraps the call in
+# run-shell, which does.
+set -euo pipefail
+
+target="${1:-}"
+tmp="$(mktemp -t yazi-cwd.XXXXXX)"
+trap 'rm -f -- "$tmp"' EXIT
+
+yazi --cwd-file="$tmp" "${@:2}"
+
+cwd="$(cat -- "$tmp" 2>/dev/null || true)"
+[[ -n $cwd && -n $target ]] || exit 0
+
+# Only type into the pane if it's sitting at a shell prompt. Injecting `cd`
+# into a running program (hx, psql, claude) would be worse than doing nothing.
+case "$(tmux display-message -p -t "$target" '#{pane_current_command}')" in
+	zsh | bash | sh | fish) ;;
+	*) exit 0 ;;
+esac
+
+# Leading space keeps it out of history under HIST_IGNORE_SPACE.
+tmux send-keys -t "$target" " cd $(printf '%q' "$cwd")" C-m

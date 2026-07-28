@@ -1,16 +1,28 @@
+defaults:
+    issuesLimit: 20
+    notificationsLimit: 20
+    prApproveComment: "LGTM :shipit:"
+    preview:
+      open: true
+      width: 0.45
+      height: 0.60
+      position: auto
+    prsLimit: 20
+    refetchIntervalMinutes: 10
+    view: prs
 prSections:
     - title: My Pull Requests
       filters: is:open author:@me
     - title: Needs My Review
       filters: is:open review-requested:@me
+    - title: Involved
+      filters: is:open involves:@me -author:@me 
     - title: Org (titan-index)
       filters: is:open org:titan-index sort:updated-desc
     - title: Recently Merged
-      filters: is:merged org:titan-index sort:updated-desc
+      filters: is:merged org:titan-index sort:updated-desc updated:>={{ nowModify "-2w" }}
     - title: Commented
       filters: is:open commenter:@me
-    - title: Involved
-      filters: is:open involves:@me -author:@me
 notificationsSections:
     - title: Review Requested
       filters: reason:review-requested

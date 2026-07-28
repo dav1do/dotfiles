@@ -35,6 +35,7 @@ CONFIG_DIRS=(
     sesh
     "tmux plugins"   # skip plugins — managed by tpm
     "helix runtime"  # skip runtime — symlink to built-from-source tree
+    "yazi plugins"   # skip plugins — pinned in package.toml, `ya pkg install`
 )
 
 # ── ~/ dotfiles (copied to home/) ──

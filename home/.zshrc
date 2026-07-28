@@ -151,8 +151,18 @@ RUST_BACKTRACE=1
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
-# `zi` interactive picker: preview dir contents with lsd. {2..} skips zoxide's score column.
+# --cmd cd replaces `cd` with zoxide's function instead of aliasing it: the alias
+# would leave zoxide's completer registered on `z` while `cd` kept zsh's `_cd`,
+# and aliases don't apply inside functions parsed before this line.
+# Safe because zoxide tries a real `builtin cd` before querying its db, so a local
+# ./src always beats a high-frecency ~/ukon/ui. Casualty: `cd -P/-q/-s/-L` are
+# parsed as keywords and fail. `cd -`, `cd -2`, `cd +1` all still behave normally.
+if command -v zoxide >/dev/null; then
+  eval "$(zoxide init zsh --cmd cd)"
+  # keep the old names — `--cmd cd` renames z/zi to cd/cdi.
+  alias z='cd' zi='cdi'
+fi
+# `cdi`/`zi` interactive picker: preview dir contents with lsd. {2..} skips zoxide's score column.
 export _ZO_FZF_OPTS="--height 40% --reverse --preview 'lsd -a --color=always {2..}' --preview-window=right:50%"
 
 [ -f "/Users/david/.ghcup/env" ] && source "/Users/david/.ghcup/env" # ghcup-env
@@ -181,10 +191,17 @@ if tty -s; then
 fi
 
 # Set up fzf key bindings and fuzzy completion
-export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border"
+# --height stays OUT of DEFAULT_OPTS and lives in the per-widget opts instead.
+# A TUI that spawns fzf itself (yazi's fzf plugin) releases the terminal first
+# and expects fzf to take the whole screen; an inherited `--height 40%` puts
+# fzf in inline mode, so it paints over the leftover screen instead. Yazi's
+# zoxide plugin force-appends --height=100% to defend against this; its fzf
+# plugin runs bare `fzf` and inherits whatever is set here.
+export FZF_DEFAULT_OPTS="--layout=reverse --border"
 # Ctrl-T (insert path): bat preview for files, lsd for dirs. Alt-C (cd into subdir): lsd preview.
-export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers {} 2>/dev/null || lsd -a --color=always {}'"
-export FZF_ALT_C_OPTS="--preview 'lsd -a --color=always {}'"
+export FZF_CTRL_T_OPTS="--height 40% --preview 'bat --color=always --style=numbers {} 2>/dev/null || lsd -a --color=always {}'"
+export FZF_ALT_C_OPTS="--height 40% --preview 'lsd -a --color=always {}'"
+export FZF_CTRL_R_OPTS="--height 40%"
 command -v fzf >/dev/null && source <(fzf --zsh)
 
 # direnv — 2.37.1 still prints "loading .envrc" + "export +VAR1..." to stderr.
@@ -200,13 +217,31 @@ fi
 
 export PATH="$HOME/.local/bin:$PATH"
 
-function y() {
+y() {
   local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
   yazi "$@" --cwd-file="$tmp"
   if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
     builtin cd -- "$cwd"
   fi
   rm -f -- "$tmp"
+}
+
+urlparse() {
+  local mode="$1"
+  shift
+  local str="$*"
+  case "$mode" in
+    -e|--encode)
+      python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$str"
+      ;;
+    -d|--decode)
+      python3 -c 'import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))' "$str"
+      ;;
+    *)
+      echo "Usage: urlparse [-e|-d] string" >&2
+      return 1
+      ;;
+  esac
 }
 
 # Claude Code

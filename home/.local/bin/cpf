@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# cpf — copy file contents to the system clipboard.
+#
+# Usage:
+#   cpf FILE [FILE...]   copy the file's contents (multiple files are concatenated)
+#   cpf                  copy stdin
+#   cpf -n FILE          strip the trailing newline (handy for paths, tokens, one-liners)
+#   cpf -q FILE          quiet — no summary on stderr
+#
+# Bytes go through untouched (no command substitution), so trailing blank lines and
+# binary content survive. The summary goes to stderr, so cpf stays pipe-safe.
+
+set -euo pipefail
+
+strip_newline=false
+quiet=false
+
+usage() { sed -n '2,9p' "$0" | cut -c3-; }
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -n|--no-newline) strip_newline=true; shift ;;
+        -q|--quiet) quiet=true; shift ;;
+        -h|--help) usage; exit 0 ;;
+        --) shift; break ;;
+        -*) echo "cpf: unknown option: $1" >&2; usage >&2; exit 2 ;;
+        *) break ;;
+    esac
+done
+
+# Pick a clipboard sink for the platform.
+if [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wl-copy >/dev/null 2>&1; then
+    clip=(wl-copy)
+elif command -v pbcopy >/dev/null 2>&1; then
+    clip=(pbcopy)
+elif command -v xclip >/dev/null 2>&1; then
+    clip=(xclip -selection clipboard)
+elif command -v xsel >/dev/null 2>&1; then
+    clip=(xsel --clipboard --input)
+else
+    echo "cpf: no clipboard command found (pbcopy/wl-copy/xclip/xsel)" >&2
+    exit 1
+fi
+
+# Validate up front so a bad path in the middle doesn't leave a half-copied clipboard.
+for f in "$@"; do
+    [[ -d "$f" ]] && { echo "cpf: $f: is a directory" >&2; exit 1; }
+    [[ -e "$f" ]] || { echo "cpf: $f: no such file" >&2; exit 1; }
+    [[ -r "$f" ]] || { echo "cpf: $f: not readable" >&2; exit 1; }
+done
+
+if [[ $# -eq 0 && -t 0 ]]; then
+    echo "cpf: no file given and stdin is a terminal" >&2
+    usage >&2
+    exit 2
+fi
+
+# Stage to a temp file: lets us measure it and trim the trailing newline without
+# round-tripping the bytes through a shell variable.
+tmp=$(mktemp "${TMPDIR:-/tmp}/cpf.XXXXXX")
+trap 'rm -f "$tmp" "$tmp.trim"' EXIT
+
+if [[ $# -eq 0 ]]; then
+    source_desc="stdin"
+    cat >"$tmp"
+else
+    source_desc="$*"
+    cat -- "$@" >"$tmp"
+fi
+
+bytes=$(wc -c <"$tmp" | tr -d ' ')
+
+if [[ "$strip_newline" == true && "$bytes" -gt 0 ]] && [[ $(tail -c1 "$tmp" | wc -l) -eq 1 ]]; then
+    head -c $((bytes - 1)) "$tmp" >"$tmp.trim"
+    mv "$tmp.trim" "$tmp"
+    bytes=$((bytes - 1))
+fi
+
+"${clip[@]}" <"$tmp"
+
+if [[ "$quiet" != true ]]; then
+    lines=$(grep -c '' <"$tmp" || true)
+    [[ "$lines" -eq 1 ]] && unit=line || unit=lines
+    echo "cpf: copied $source_desc — ${lines} ${unit}, ${bytes} bytes" >&2
+fi

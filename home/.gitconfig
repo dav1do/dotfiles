@@ -8,6 +8,7 @@
 	signingkey = C3EACD65B4D7E164 
 [commit]
 	gpgsign = true
+	verbose = true
 [tag]
 	gpgSign = true
 [core]
@@ -27,3 +28,23 @@
 	conflictStyle = zdiff3
 [credential "https://dev.azure.com"]
 	useHttpPath = true
+[fetch]
+	prune = true
+	pruneTags = true
+[push]
+	autoSetupRemote = true
+[pull]
+	rebase = true
+[rebase]
+	updateRefs = true 
+	autoSquash = true
+	autoStash = true
+[branch]
+	sort = -committerdate
+[column]
+	ui = auto
+[diff]
+	algorithm = histogram
+# auto apply resolution the same way next time.. not 100% on this one
+[rerere]
+	enabled = true

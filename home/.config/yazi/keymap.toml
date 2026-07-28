@@ -1,0 +1,180 @@
+# A TOML linter such as https://github.com/tombi-toml/tombi can use this schema to validate your config.
+#:schema https://yazi-rs.github.io/schemas/keymap.json
+#
+# ── Design ────────────────────────────────────────────────────────────────
+# Goal: yazi should read like helix/vim, and reach the shell like a shell.
+#
+# Everything here is `prepend_keymap`, so it *shadows* the stock binding with
+# the same first-two keys and leaves the rest of yazi's defaults intact.
+# `run = "noop"` deletes a default binding outright (that's the documented
+# unbind idiom — yazi filters noop chords out after merging).
+#
+#   ?            help  (stock yazi uses `~`, which is a ranger inheritance;
+#                       `~` and <F1> still work)
+#   q            quit, leaving the shell in the directory you started from
+#                (deliberate: yazi is a navigator here, not a cd tool)
+#   Q            quit AND cd the shell to where you ended up (--cwd-file)
+#
+#   REGISTERS (helix/vim semantics — NOT stock yazi)
+#   y            copy      (yank)
+#   d            CUT       (stock yazi: d = trash. `x` still cuts too.)
+#   p / P        paste / paste --force
+#   Y / X        cancel the yank
+#   D / <Del>    trash
+#   <S-Del>      delete permanently
+#
+#   ; …          SHELL MENU — real commands: mv, cp, mkdir, chmod, rm, tar…
+#                `;;` raw prompt, `;:` raw blocking prompt. `:` alone still
+#                opens a blocking shell prompt in one key.
+#   e            edit selection in $EDITOR (hx)
+#
+#   <Space> …    LEADER, helix-shaped. Which-key lists it, so there is nothing
+#                to memorize:
+#                  <Space>f   fuzzy file picker      (helix: file picker)
+#                  <Space>/   grep contents          (helix: global search)
+#                  <Space>d   fd by filename
+#                  <Space>z   zoxide directory jump
+#                  <Space>y   copy path to clipboard (helix: yank to clipboard)
+#                Plus one-key paths for the two used constantly:
+#                  <C-p>  file picker      <C-g>  grep
+#
+#   ⚠ <Space> NO LONGER TOGGLES SELECTION — it's the leader now.
+#     <Tab> toggles the hovered file instead, and `i` shows file info (the
+#     job <Tab> used to do). v/V/%/<C-a> are untouched.
+#
+#   g …          goto (vim). gt/gT switch tabs. g<Space> is a path prompt.
+#   %            select everything (helix)
+#   <C-e>/<C-y>  scroll the preview (matches the helix bindings)
+#
+# NOT bound on purpose: <C-h/j/k/l> — tmux eats those for pane navigation.
+#
+# Cursor offsets in the `;` menu are hand-counted character positions into
+# the prefilled command; recount if you edit the template text.
+
+# ── mgr ───────────────────────────────────────────────────────────────────
+[mgr]
+
+prepend_keymap = [
+	# Help ─ `?` instead of `~`
+	{ on = "?", run = "help", desc = "Open help" },
+
+	# Quit ─ inverted from stock yazi on purpose: `q` is the reflex key and
+	# should leave you where you were. `Q` is the one that cd's.
+	{ on = "q", run = "quit --no-cwd-file", desc = "Quit, stay in the original directory" },
+	{ on = "Q", run = "quit",               desc = "Quit, and cd the shell here" },
+
+	# ── Registers: y copies, d cuts, p pastes ────────────────────────────
+	{ on = "y", run = "yank",          desc = "Copy (yank) selection" },
+	{ on = "d", run = "yank --cut",    desc = "Cut selection (paste with p)" },
+	{ on = "p", run = "paste",         desc = "Paste yanked files here" },
+	{ on = "P", run = "paste --force", desc = "Paste, overwriting existing files" },
+
+	# ── Delete: never on `d` ─────────────────────────────────────────────
+	{ on = "D",          run = "remove",               desc = "Trash selection" },
+	{ on = "<Delete>",   run = "remove",               desc = "Trash selection" },
+	{ on = "<S-Delete>", run = "remove --permanently", desc = "Delete permanently (no trash)" },
+
+	# ── Open / edit ──────────────────────────────────────────────────────
+	{ on = "<Enter>", run = "plugin smart-enter", desc = "Enter the directory, or open the file" },
+	{ on = "l",       run = "plugin smart-enter", desc = "Enter the directory, or open the file" },
+	{ on = "e",       run = "shell '$EDITOR \"$@\"' --block", desc = "Edit selection in $EDITOR" },
+
+	# ── Shell menu (`;`) — the actual unix commands ───────────────────────
+	# Unbind stock single-key `;` so it can act as a which-key prefix.
+	{ on = ";", run = "noop" },
+
+	{ on = [ ";", ";" ], run = "shell --interactive",         desc = "Shell command (background)" },
+	{ on = [ ";", ":" ], run = "shell --block --interactive", desc = "Shell command (blocking)" },
+	{ on = [ ";", "s" ], run = "shell '$SHELL' --block",      desc = "Drop to a shell here" },
+
+	{ on = [ ";", "m" ], run = "shell 'mv -iv \"$@\" '   --block --interactive --cursor=12", desc = "mv — move/rename selection" },
+	{ on = [ ";", "c" ], run = "shell 'cp -riv \"$@\" '  --block --interactive --cursor=13", desc = "cp — copy selection" },
+	{ on = [ ";", "k" ], run = "shell 'mkdir -pv '       --block --interactive --cursor=10", desc = "mkdir -p" },
+	{ on = [ ";", "t" ], run = "shell 'touch '           --block --interactive --cursor=6",  desc = "touch" },
+	{ on = [ ";", "l" ], run = "shell 'ln -s \"$0\" '    --block --interactive --cursor=11", desc = "ln -s — symlink hovered file" },
+	{ on = [ ";", "r" ], run = "shell 'rm -rIv \"$@\"'   --block --interactive --cursor=12", desc = "rm -rI — real delete, prompts once" },
+	{ on = [ ";", "x" ], run = "shell 'chmod -R  \"$@\"' --block --interactive --cursor=9",  desc = "chmod -R" },
+	{ on = [ ";", "o" ], run = "shell 'chown -R  \"$@\"' --block --interactive --cursor=9",  desc = "chown -R" },
+	{ on = [ ";", "z" ], run = "shell 'tar -czvf .tgz \"$@\"' --block --interactive --cursor=10", desc = "tar -czvf — archive selection" },
+	{ on = [ ";", "u" ], run = "shell 'du -sh \"$@\" | sort -h' --block", desc = "du -sh — sizes of selection" },
+	{ on = [ ";", "g" ], run = "shell 'lazygit' --block", desc = "lazygit here" },
+
+	# ── Search / jump (<Space> leader, helix-shaped) ──────────────────────
+	# Unbind stock single-key <Space> (toggle selection) so it can act as a
+	# which-key prefix. Selection moves to <Tab>, file info moves to `i`.
+	{ on = "<Space>", run = "noop" },
+
+	{ on = [ "<Space>", "f" ], run = "plugin fzf",          desc = "Jump to any file below here (fzf)" },
+	{ on = [ "<Space>", "/" ], run = "search --via=rg",     desc = "Grep file contents below here (rg)" },
+	{ on = [ "<Space>", "d" ], run = "search --via=fd",     desc = "Find filenames below here (fd)" },
+	{ on = [ "<Space>", "z" ], run = "plugin zoxide",       desc = "Jump to a directory (zoxide)" },
+	{ on = [ "<Space>", "j" ], run = "cd --interactive",    desc = "Jump to a path (type it)" },
+	{ on = [ "<Space>", "F" ], run = "filter --smart",      desc = "Filter this directory" },
+	{ on = [ "<Space>", "c" ], run = "escape --search",     desc = "Cancel the active search" },
+	{ on = [ "<Space>", "y" ], run = "copy path",           desc = "Copy full path to clipboard" },
+	{ on = [ "<Space>", "?" ], run = "help",                desc = "Open help" },
+
+	# One-key paths for the two used constantly.
+	{ on = "<C-p>", run = "plugin fzf",      desc = "Jump to any file below here (fzf)" },
+	{ on = "<C-g>", run = "search --via=rg", desc = "Grep file contents below here (rg)" },
+
+	# ── Selection ────────────────────────────────────────────────────────
+	# <Tab> inherits what <Space> used to do; `i` inherits <Tab>'s old job.
+	{ on = "<Tab>", run = [ "toggle", "arrow 1" ], desc = "Toggle selection of the hovered file" },
+	{ on = "i",     run = "spot",                  desc = "Show file info (spot)" },
+	{ on = "%",     run = "toggle_all --state=on",  desc = "Select all files" },
+
+	# ── Preview scrolling — same keys as helix's scroll ──────────────────
+	{ on = "<C-e>", run = "seek 1",  desc = "Scroll preview down" },
+	{ on = "<C-y>", run = "seek -1", desc = "Scroll preview up" },
+
+	# ── Goto (`g`) ───────────────────────────────────────────────────────
+	{ on = [ "g", "t" ], run = "tab_switch 1 --relative",  desc = "Next tab" },
+	{ on = [ "g", "T" ], run = "tab_switch -1 --relative", desc = "Previous tab" },
+	{ on = [ "g", "m" ], run = "cd ~/mystuff",             desc = "Go ~/mystuff" },
+	{ on = [ "g", "." ], run = "cd ~/mystuff/dotfiles",    desc = "Go ~/mystuff/dotfiles" },
+	{ on = [ "g", "u" ], run = "cd ~/ukon",                desc = "Go ~/ukon" },
+	{ on = [ "g", "D" ], run = "cd ~/Desktop",             desc = "Go ~/Desktop" },
+	{ on = [ "g", "/" ], run = "cd /",                     desc = "Go /" },
+
+	# ── Tabs ─────────────────────────────────────────────────────────────
+	{ on = [ "t", "x" ], run = "close", desc = "Close current tab" },
+]
+
+# ── tasks / spot / pick / confirm / help ──────────────────────────────────
+# `q` closes popups, `?` is help everywhere.
+[tasks]
+
+prepend_keymap = [
+	{ on = "q", run = "close", desc = "Close task manager" },
+	{ on = "?", run = "help",  desc = "Open help" },
+]
+
+[spot]
+
+prepend_keymap = [
+	{ on = "q", run = "close", desc = "Close the spot" },
+	{ on = "i", run = "close", desc = "Close the spot" },
+	{ on = "?", run = "help",  desc = "Open help" },
+]
+
+[pick]
+
+prepend_keymap = [
+	{ on = "q", run = "close", desc = "Cancel pick" },
+	{ on = "?", run = "help",  desc = "Open help" },
+]
+
+[confirm]
+
+prepend_keymap = [
+	{ on = "q", run = "close", desc = "Cancel the confirm" },
+]
+
+[help]
+
+prepend_keymap = [
+	{ on = "q", run = "close",  desc = "Hide the help" },
+	{ on = "?", run = "close",  desc = "Hide the help" },
+	{ on = "/", run = "filter", desc = "Filter help items" },
+]
