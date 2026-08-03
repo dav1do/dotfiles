@@ -71,7 +71,7 @@ ln -sfn ~/mystuff/helix/runtime ~/.config/helix/runtime           # grammars, qu
 - `theme = "catppuccin_mocha"` in `config.toml` ships inside that runtime tree — nothing extra to install
 - `sync.sh` deliberately skips `.config/helix/runtime`; it's a symlink into the source checkout, not config
 - everything helix needs at runtime is in the language-servers and formatters lines above; `hx --health <lang>` confirms per language
-- `proposals/` holds migration notes from the nvim days. The npm install lines in there are superseded — those packages are all in brew now, which keeps them off nvm's node-version treadmill.
+- keybindings, workflows, and LSP gotchas: [`docs/helix-daily-driving.md`](./docs/helix-daily-driving.md). It lives in `docs/` rather than under `home/.config/helix/` deliberately — `sync.sh` doesn't walk `docs/`, so the doc can't be clobbered by a sync from a stale live copy.
 
 Python:
 

@@ -8,11 +8,39 @@ bufferline = "multiple"
 true-color = true
 scrolloff = 8
 completion-trigger-len = 3
+# Default is 250ms *after* trigger-len is satisfied. The docstring on
+# Config::completion_timeout says "set to 5 for instant" — trigger-len already
+# controls the noise, so there's no reason to also wait a quarter second.
+completion-timeout = 5
 text-width = 100
 rulers = [100]
 end-of-line-diagnostics = "hint"
+# Save when focus leaves helix (tmux pane switch, terminal blur). Deliberately
+# no `after-delay` — that would fire auto-format mid-thought.
+auto-save = { focus-lost = true }
+# Formatters cover most languages here; this catches the ones without one.
+trim-trailing-whitespace = true
+trim-final-newlines = true
+# Labels for `gw` (goto_word) in typing order instead of alphabetical, so the
+# first labels handed out land under your fingers. Parsed as a string, not a list.
+jump-label-alphabet = "asdfghjklwertyuiopqzxcvbnm"
 # to use system clipboard by default
 # default-yank-register = "+"
+
+# Buffer-word completion. helix ships this enabled at trigger-length 7, which is
+# long enough that it effectively never fires. 5 makes it useful in files with no
+# language server (tmux.conf, Makefiles, plain text).
+[editor.word-completion]
+trigger-length = 5
+
+# Long rustc/tsc messages render as virtual text under the cursor line instead of
+# being truncated at EOL. Anything below `warning` still goes to EOL via
+# `end-of-line-diagnostics` above — a diagnostic shown inline is excluded from
+# EOL, so there's no double render. `other-lines` stays disabled: virtual text on
+# non-cursor lines shifts the whole viewport as you move.
+[editor.inline-diagnostics]
+cursor-line = "warning"
+
 [editor.statusline]
 left = [
     "mode",
@@ -60,6 +88,12 @@ tab = "all"
 
 [keys.normal]
 C-s = ":w"
+# C-q is unbound in normal mode — helix only uses it inside window mode
+# (`C-w C-q` = wclose), so there's nothing to shadow. `:wqa` and not `:q`
+# because `:q` on the last view refuses to exit while *any* buffer is dirty,
+# not just this one, which is the annoyance being fixed. It still bails rather
+# than exiting if a modified scratch buffer has no filename.
+C-q = ":write-quit-all"
 # S-h = ":buffer-previous"
 # S-l = ":buffer-next"
 esc = ["collapse_selection", "keep_primary_selection"]
@@ -73,6 +107,14 @@ A-k = [
 ]
 C-e = "scroll_down"
 C-y = "scroll_up"
+# `=` is format_selections, which only asks a language server for range
+# formatting — it never touches the `formatter` entries in languages.toml. Of the
+# languages configured there it's correct in python (ruff LSP == ruff format),
+# silently *wrong* in ts/tsx/js/jsx (vtsls advertises range formatting, so it
+# reformats to tsserver style and the next save undoes it in prettier style), and
+# dead everywhere else (rust-analyzer and vscode-json-language-server both
+# advertise range: false). `:format` uses the same path as format-on-save.
+"=" = ":format"
 
 [keys.insert]
 C-s = [":w", "normal_mode"]
@@ -87,8 +129,34 @@ A-k = [
 ]
 ">" = ["indent", "collapse_selection"]
 "<" = ["unindent", "collapse_selection"]
+"=" = ":format"
 
 [keys.normal.g]
 o = "flip_selections"
 [keys.select.g]
 o = "flip_selections"
+
+# `m` gives back the jumplist push that C-s = ":w" took away — helix has no vim
+# marks, so this plus C-o / space j is the mark story.
+[keys.normal.space]
+m = "save_selection"
+q = ":buffer-close"
+Q = ":buffer-close-others"
+l = ":lsp-restart"
+L = ":log-open"
+# `=` because that's already format-selection in normal mode; `:format` is the
+# whole-file version and, unlike `=`, goes through the external formatter too.
+"=" = ":format"
+
+# `:toggle` flips editor config live and applies to every buffer — there is no
+# per-buffer wrap. It needs the key to already have a non-null value, which is
+# why `soft-wrap.enable` is set explicitly above rather than left to default.
+[keys.normal.space.t]
+w = ":toggle soft-wrap.enable"
+n = ":toggle line-number relative absolute"
+i = ":toggle lsp.display-inlay-hints"
+g = ":toggle indent-guides.render"
+W = ":toggle soft-wrap.wrap-at-text-width"
+
+[keys.select.space]
+m = "save_selection"
