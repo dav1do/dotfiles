@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+# Check that every external binary helix invokes actually RUNS.
+#
+# Why this exists: `hx --health` only stats the file on PATH. It happily prints
+# ✓ for a language server whose interpreter is broken or whose package isn't
+# installed for the active node version, so a whole class of failure is invisible
+# from inside helix — format-on-save silently does nothing, completions never
+# arrive, and health output looks clean.
+#
+# Two failure modes this catches:
+#   1. Interpreter broken. Homebrew's node links ~22 homebrew dylibs; when one
+#      majors without node being rebottled, node dies at load and every
+#      node-based formula dies with it. Official Node.org builds (what nvm
+#      installs) link only system frameworks, which is why the tooling moved off
+#      brew — see the Node section of the dotfiles README.
+#   2. Package missing for the active node version. npm globals are per-version
+#      and `nvm use` replaces its PATH entry rather than stacking, so switching
+#      node makes tools vanish unless ~/.nvm/default-packages installed them
+#      there too.
+#
+# Exit codes are NOT a usable health signal here: an LSP server started with
+# `--stdio` and no client on stdin exits 1 after a clean EOF, while a dyld
+# failure exits 134. So classification is by output signature — see BROKEN_RE.
+#
+# Usage: toolchain-check [-v] [-u]
+#   -v  also print the resolved path for each tool
+#   -u  additionally check npm globals for available updates (hits the network)
+
+set -uo pipefail
+
+verbose=0
+updates=0
+for arg in "$@"; do
+    case "$arg" in
+        -v) verbose=1 ;;
+        -u) updates=1 ;;
+        -vu | -uv) verbose=1 updates=1 ;;
+        *)
+            echo "usage: toolchain-check [-v] [-u]" >&2
+            exit 2
+            ;;
+    esac
+done
+
+# Anything matching this means the program never got off the ground.
+BROKEN_RE='Library not loaded|dyld\[|Cannot find module|MODULE_NOT_FOUND|command not found'
+
+# name|probe args|source|report
+#   report=version  the tool prints a version, show it
+#   report=loads    no version flag exists; reaching a clean EOF or an LSP
+#                   frame is the health signal (see the vscode-* servers, which
+#                   have no --version and throw a "Connection input stream"
+#                   error for any other argument)
+TOOLS=(
+    "prettier|--version|npm|version"
+    "vtsls|--version|npm|version"
+    "vscode-json-language-server|--stdio|npm|loads"
+    "vscode-eslint-language-server|--stdio|npm|loads"
+    "yaml-language-server|--stdio|npm|loads"
+    "bash-language-server|--version|npm|version"
+    "ruff|--version|native|version"
+    "stylua|--version|native|version"
+    "shfmt|--version|native|version"
+    "taplo|--version|native|version"
+    "marksman|--version|native|version"
+    "rust-analyzer|--version|native|version"
+)
+
+# Which node is going to run the npm-installed tools, and where it came from.
+active_node=$(command -v node 2>/dev/null)
+case "$active_node" in
+    "$HOME/.nvm/"*) node_origin="nvm $(printf '%s' "$active_node" | awk -F/ '{print $(NF-2)}')" ;;
+    /opt/homebrew/*) node_origin="homebrew — expected nvm, see README" ;;
+    "") node_origin="NOT ON PATH" ;;
+    *) node_origin="$active_node" ;;
+esac
+
+pass=0 fail=0 optional=0
+declare -a broken=() absent=()
+
+printf 'node: %s  (%s)\n\n' "${active_node:-none}" "$node_origin"
+printf '%-32s %-7s %s\n' "TOOL" "SOURCE" "RESULT"
+printf '%-32s %-7s %s\n' "----" "------" "------"
+
+for entry in "${TOOLS[@]}"; do
+    IFS='|' read -r bin args source report <<<"$entry"
+    path=$(command -v "$bin" 2>/dev/null)
+
+    if [[ -z $path ]]; then
+        if [[ $source == npm ]]; then
+            absent+=("$bin")
+            printf '%-32s %-7s \033[31mnot on PATH\033[m\n' "$bin" "$source"
+        else
+            optional=$((optional + 1))
+            printf '%-32s %-7s \033[33mnot installed\033[m\n' "$bin" "$source"
+        fi
+        continue
+    fi
+
+    out=$("$bin" $args 2>&1 </dev/null)
+
+    if printf '%s' "$out" | grep -qE "$BROKEN_RE"; then
+        fail=$((fail + 1))
+        broken+=("$bin")
+        printf '%-32s %-7s \033[31mBROKEN\033[m\n' "$bin" "$source"
+        printf '%s' "$out" | grep -E "$BROKEN_RE" | head -1 | sed 's/^/    /'
+        [[ $source == npm ]] && printf '    interpreter: %s\n' \
+            "$(head -1 "$(readlink -f "$path" 2>/dev/null || printf '%s' "$path")" 2>/dev/null)"
+        continue
+    fi
+
+    pass=$((pass + 1))
+    if [[ $report == version ]]; then
+        detail=$(printf '%s' "$out" | head -1 | cut -c1-32)
+    else
+        detail="loads"
+    fi
+    if [[ $verbose -eq 1 ]]; then
+        printf '%-32s %-7s \033[32mok\033[m  %-24s %s\n' "$bin" "$source" "$detail" "$path"
+    else
+        printf '%-32s %-7s \033[32mok\033[m  %s\n' "$bin" "$source" "$detail"
+    fi
+done
+
+if [[ $updates -eq 1 ]]; then
+    echo
+    echo "npm globals (network):"
+    if [[ -z $active_node ]]; then
+        echo "  skipped — no node on PATH"
+    else
+        # `npm outdated` exits 1 when anything is outdated; that isn't an error here,
+        # so distinguish "npm itself failed" from "npm listed some packages".
+        out=$(npm --location=global outdated 2>&1)
+        if printf '%s' "$out" | grep -q '^npm error'; then
+            printf '  \033[33mnpm could not check\033[m\n'
+            printf '%s' "$out" | grep '^npm error' | head -3 | sed 's/^/    /'
+        elif [[ -n $out ]]; then
+            printf '%s\n' "$out" | sed 's/^/  /'
+            printf '  update with: npm i -g %s\n' "$(printf '%s' "$out" | awk 'NR>1{print $1}' | tr '\n' ' ')"
+        else
+            echo "  all current"
+        fi
+    fi
+fi
+
+echo
+if [[ $fail -eq 0 && ${#absent[@]} -eq 0 ]]; then
+    printf '\033[32m%d ok\033[m' "$pass"
+    [[ $optional -gt 0 ]] && printf ', %d optional not installed' "$optional"
+    echo
+    exit 0
+fi
+
+printf '\033[31m%d ok, %d broken, %d missing\033[m\n' "$pass" "$fail" "${#absent[@]}"
+
+if [[ ${#absent[@]} -gt 0 ]]; then
+    cat <<EOF
+
+Missing from the active node version: ${absent[*]}
+
+npm globals are per-node-version, and \`nvm use\` replaces its PATH entry rather
+than stacking on it — so switching node (explicitly, or via an .nvmrc in this
+directory) makes tools vanish. Backfill the active version from the default:
+
+    nvm reinstall-packages \$(cat ~/.nvm/alias/default)
+
+If they're missing under every version, ~/.nvm/default-packages isn't being
+applied — check that it lists them, then \`npm i -g\` the list once here.
+EOF
+fi
+
+if [[ ${#broken[@]} -gt 0 ]]; then
+    cat <<EOF
+
+Broken (installed but won't execute): ${broken[*]}
+
+If the interpreter line above points into /opt/homebrew, that's the dylib-skew
+failure and the tool is a leftover brew formula. The tooling comes from nvm now:
+
+    brew uninstall prettier vtsls vscode-langservers-extracted \\
+                   yaml-language-server bash-language-server node
+    toolchain-check
+EOF
+fi
+exit 1

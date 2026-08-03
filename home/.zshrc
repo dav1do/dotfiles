@@ -171,6 +171,14 @@ export NVM_DIR="$HOME/.nvm"
 # First call to any of these stubs sources nvm and re-runs the command.
 # Helper is double-underscored so Claude Code's shell snapshot keeps it
 # (it strips single-underscore "private" functions, which breaks the stubs).
+#
+# These stubs are only for `nvm` itself and for switching versions. The default
+# node is already on PATH from .zshenv, which resolves ~/.nvm/alias/default
+# statically instead of sourcing nvm.sh (<1ms vs ~420ms). So `node`, `prettier`,
+# and the language servers all work in a shell where these stubs have never
+# fired — which is what helix and any non-interactive spawn depend on.
+# Don't make this eager to "fix" PATH; .zshenv already handled that.
+# See the Node section of the dotfiles README.
 if [[ -s "$NVM_DIR/nvm.sh" ]]; then
   __nvm_lazy_load() {
     unset -f nvm node npm npx __nvm_lazy_load

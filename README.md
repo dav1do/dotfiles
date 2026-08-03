@@ -15,21 +15,24 @@ CLI:
   - GCP: `brew install cloud-sql-proxy`
 - yazi previewers: `brew install poppler ffmpeg sevenzip` (PDF / video / archive previews — yazi calls these implicitly, they aren't named in `yazi.toml`)
 - docs: `brew install pandoc typst`
-- language servers: `brew install marksman ruff vtsls vscode-langservers-extracted yaml-language-server bash-language-server`; `rust-analyzer` via rustup (below)
-  - these used to come from nvim's Mason; with nvim gone they're installed standalone, and brew keeps them off nvm's node-version treadmill
-  - `vscode-langservers-extracted` is one formula covering the json / html / css / eslint servers
+- language servers, native: `brew install marksman ruff`; `rust-analyzer` via rustup (below)
+- language servers, node: **not from brew** — they come from `~/.nvm/default-packages`, see the node
+  section below. That's `@vtsls/language-server vscode-langservers-extracted yaml-language-server bash-language-server`.
+  - these used to come from nvim's Mason; with nvim gone they're installed standalone
+  - `vscode-langservers-extracted` is one package covering five servers: json / html / css / eslint / markdown
   - `vtsls` is what `helix/languages.toml` names for ts/tsx/js — not `typescript-language-server`
   - not installed, add if you need them: `lua-language-server` (only Lua here was the nvim config), `gopls`
-  - check any language with `hx --health <lang>`
+  - `hx --health <lang>` only checks that the binary _exists_. Use `toolchain-check` (in
+    `~/.local/bin`) to check they actually run — see below for why that distinction matters.
 - gh extensions:
   - `gh extension install dlvhdr/gh-dash` (PR/issue dashboard; bound to `prefix+h` in tmux)
   - `gh extension install dlvhdr/gh-enhance` (CI detail TUI for a PR; bound to `T` in gh-dash — see the `enhance` keybinding in `home/.config/gh-dash/config.yml`)
 - editors: helix, built from source — see the helix section below
 - file managers: `brew install yazi lf`
-- formatters: `brew install prettier shfmt stylua taplo ruff`
+- formatters: `brew install shfmt stylua taplo ruff` — plus `prettier`, which comes from nvm (node section below), not brew
 - tmux + session picker: `brew install tmux sesh`
 - k8s: `brew install kubectl`
-- nvm: https://github.com/nvm-sh/nvm (note: lazy-loaded in `.zshrc`)
+- nvm: https://github.com/nvm-sh/nvm — the only node source; `.zshenv` puts the default version on `PATH`, `.zshrc` keeps lazy stubs for switching. See the node section below
 - claude code: https://docs.claude.com/en/docs/claude-code
 
 Apps:
@@ -73,13 +76,100 @@ ln -sfn ~/mystuff/helix/runtime ~/.config/helix/runtime           # grammars, qu
 - everything helix needs at runtime is in the language-servers and formatters lines above; `hx --health <lang>` confirms per language
 - keybindings, workflows, and LSP gotchas: [`docs/helix-daily-driving.md`](./docs/helix-daily-driving.md). It lives in `docs/` rather than under `home/.config/helix/` deliberately — `sync.sh` doesn't walk `docs/`, so the doc can't be clobbered by a sync from a stale live copy.
 
+Node:
+
+**One node source: nvm.** No homebrew node, and none of the node-based tooling from homebrew either.
+The reason is measurable — `otool -L` on each binary:
+
+|                                   | homebrew dylibs it links                                                              |
+| --------------------------------- | ------------------------------------------------------------------------------------- |
+| `/opt/homebrew/bin/node`          | **22** (llhttp, libuv, ada-url, simdjson, brotli, c-ares, openssl@3, sqlite, zstd, …) |
+| `~/.nvm/versions/node/*/bin/node` | **0** — CoreFoundation, Security, libc++, libSystem, nothing else                     |
+
+nvm installs the official Node.org tarball, which is statically self-contained. Homebrew rebuilds node
+against brew's dependency graph, giving 22 independently-versioned chances for a major bump to break
+it. That's not hypothetical: `ada-url` 3 → 4 landed without node being rebottled and killed node at
+load with `Library not loaded: libada.3.dylib`, taking all 5 node formulae and 9 binaries with it —
+`prettier`, `vtsls`, `yaml-language-server`, `bash-language-server`, and the five
+`vscode-{json,html,css,eslint,markdown}-language-server` binaries. In helix that looked like
+format-on-save silently doing nothing and no completions in ts/json/yaml/bash, while `hx --health`
+still printed ✓ for every one of them.
+
+**How the pieces fit.**
+
+- `~/.nvm/alias/default` is pinned to a **concrete version**, not the floating `node` alias.
+  `.zshenv` prepends that version's `bin` to `PATH` by reading the alias file — no `nvm.sh` sourcing,
+  so it costs <1ms against ~420ms to source nvm. `.zshenv` (not `.zshrc`) because it's read for
+  non-interactive shells too, which is what helix and anything it spawns depend on.
+- `.zshrc` keeps the lazy `nvm`/`node`/`npm`/`npx` stubs, but only for switching versions. The default
+  node already works in a shell where they've never fired.
+- **`~/.nvm/default-packages`** lists the tooling, so every `nvm install` gets it. Without this,
+  switching node makes the tools vanish: npm globals are per-version, and `nvm use` _replaces_ its
+  `PATH` entry rather than stacking on it (`nvm_change_path`, `nvm.sh:1000`).
+- Project overrides work normally — `cd ~/ukon/ui && nvm use` picks up its `.nvmrc` (22.22.0, the only
+  `.nvmrc` in the tree) and the tooling is still resolvable because `default-packages` installed it
+  under that version too.
+
+**Don't try to make npm globals version-independent.** Setting `PREFIX` or `NPM_CONFIG_PREFIX` to a
+fixed directory is the obvious fix and nvm hard-fails on it: `nvm_die_on_prefix` (`nvm.sh:2760`) is
+called by `nvm use` (`nvm.sh:3933`) and returns 11. `default-packages` plus
+`nvm reinstall-packages <version>` is the sanctioned path.
+
+**Trade-off accepted.** No `brew upgrade` for these six, so updates are manual — `toolchain-check -u`
+runs `npm --location=global outdated`. And tooling versions can drift between node versions; pin them
+in `default-packages` (`prettier@3.9.5`) if format-on-save output ever differs between repos.
+
+Package managers come from the repo, not globally: `ukon/infra` declares pnpm@10.5.1,
+`ukon/ukon-core` pnpm@10.2.0, `rust-ceramic/sdk` pnpm@9.8.0. `corepack enable` honours each; one
+global `pnpm` can only match one of them. Run it once per node version you develop on.
+
+**`default-packages` only fires on a _fresh_ install.** Write the file first and `nvm install` does
+everything — no `npm i -g` afterwards. But running `nvm install` against a version that's **already**
+installed will not apply it, because the guard on that path is inverted: the fresh-install branch
+tests `[ $EXIT_CODE -eq 0 ]` (`nvm.sh:3653`) while the already-installed branch tests
+`[ $EXIT_CODE -ne 0 ]` (`nvm.sh:3549`), so it only runs when the preceding step _failed_. Same
+variable, same purpose, opposite condition — a bug in nvm 0.40.2 (not checked against upstream since).
+For a version you already have, install into it explicitly:
+
+```sh
+nvm use 22.22.0 && nvm reinstall-packages "$(cat ~/.nvm/alias/default)"
+```
+
+Setup, and recovery if any of this comes apart:
+
+```sh
+cat > ~/.nvm/default-packages <<'EOF'
+prettier
+@vtsls/language-server
+vscode-langservers-extracted
+yaml-language-server
+bash-language-server
+EOF
+
+nvm install 26                                  # fresh install → default-packages applies itself
+nvm alias default v26.6.0                       # concrete version; .zshenv needs a real directory name
+
+nvm use 22.22.0 && nvm reinstall-packages v26.6.0   # already installed, so see the bug above
+nvm use default
+
+brew uninstall prettier vtsls vscode-langservers-extracted \
+               yaml-language-server bash-language-server node
+
+toolchain-check                                 # expect 12 ok
+```
+
+**corepack is not bundled from node 25 onward** — `v26.6.0/bin` has no `corepack`, `v22.22.0/bin`
+does. That's fine in practice: the repos with `packageManager` pins run on node 22 or older
+(`engines.node >=18`), so `corepack enable` works where it's actually needed. On node 26, add
+`corepack` to `default-packages` if you ever want it there.
+
 Python:
 
 Only used for scripts, so there's one global ruff config instead of per-project setup — `home/.config/ruff/pyproject.toml` → `~/.config/ruff/pyproject.toml`. Ruff does lint + format; no type checker (hover/completions come from Pylance in VS Code and windsurfpyright in Devin).
 
 - `brew install ruff`
 - the global config applies to any script, and to repos whose `pyproject.toml` has no `[tool.ruff]` section
-- a repo that *does* define `[tool.ruff]` replaces the global config wholesale — ruff never merges configs
+- a repo that _does_ define `[tool.ruff]` replaces the global config wholesale — ruff never merges configs
 - editors: helix picks ruff up as a default language server, no config needed. VS Code and Devin need the `charliermarsh.ruff` extension (on both the MS marketplace and Open VSX) plus:
 
 ```jsonc
@@ -94,15 +184,16 @@ Only used for scripts, so there's one global ruff config instead of per-project 
 
 These live in `home/.local/bin/` and land on `PATH` via `.zshrc` (`export PATH="$HOME/.local/bin:$PATH"`). `./sync.sh` copies them back out of `~/.local/bin` into the repo.
 
-| command                                                                | what it does                                                                                                                                                                                                                                                               |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cpf [-n] [-q] FILE...`                                                | Copy file contents (or stdin) to the clipboard. Bytes pass through untouched, summary goes to stderr, so it stays pipe-safe. `-n` strips the trailing newline.                                                                                                             |
-| `git-cleanup-branches [--merged\|--gone\|--all] [--verify-pr] [--yes]` | Bucket local branches into merged / gone / local-only / diverged / active and prune the ones you name. Dry run by default; `--verify-pr` asks `gh` whether a "gone" branch's PR actually merged, so closed-unmerged work isn't deleted. Never touches `local-only`.        |
-| `claude-control [summary\|send ID MSG]`                                | fzf command & control over Claude Code tmux panes — switch, dispatch a prompt, spawn, or broadcast. Bound to `prefix+P`; `claude-control summary` is a one-line status for the tmux bar (currently commented out in `tmux.conf`).                                          |
-| `tmux-pane-picker [--query STRING]`                                    | Fuzzy-find and switch to any pane across all sessions, with a live capture-pane preview. Bound to `prefix+p`.                                                                                                                                                              |
-| `tmux-send-pane <pane-id>`                                             | Move the current pane into another session as a split (fzf-pick the target; you stay put). Bound to `prefix+S`.                                                                                                                                                            |
-| `tmux-yazi <pane-id>`                                                  | yazi in a popup that relays its `--cwd-file` back to the originating pane on quit, so `Q` leaves you where you browsed. Bound to `prefix+y`; invoked as `bash ~/.local/bin/tmux-yazi` since the file isn't executable. Only injects `cd` if the pane is at a shell prompt. |
-| `pr-review.py <pr-number> [--no-cleanup]`                              | Check a PR out into a throwaway git worktree and review it with Claude Code. Not executable — run it as `python ~/.local/bin/pr-review.py 123`.                                                                                                                            |
+| command                                                                | what it does                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cpf [-n] [-q] FILE...`                                                | Copy file contents (or stdin) to the clipboard. Bytes pass through untouched, summary goes to stderr, so it stays pipe-safe. `-n` strips the trailing newline.                                                                                                                                                                                                                                      |
+| `git-cleanup-branches [--merged\|--gone\|--all] [--verify-pr] [--yes]` | Bucket local branches into merged / gone / local-only / diverged / active and prune the ones you name. Dry run by default; `--verify-pr` asks `gh` whether a "gone" branch's PR actually merged, so closed-unmerged work isn't deleted. Never touches `local-only`.                                                                                                                                 |
+| `claude-control [summary\|send ID MSG]`                                | fzf command & control over Claude Code tmux panes — switch, dispatch a prompt, spawn, or broadcast. Bound to `prefix+P`; `claude-control summary` is a one-line status for the tmux bar (currently commented out in `tmux.conf`).                                                                                                                                                                   |
+| `tmux-pane-picker [--query STRING]`                                    | Fuzzy-find and switch to any pane across all sessions, with a live capture-pane preview. Bound to `prefix+p`.                                                                                                                                                                                                                                                                                       |
+| `tmux-send-pane <pane-id>`                                             | Move the current pane into another session as a split (fzf-pick the target; you stay put). Bound to `prefix+S`.                                                                                                                                                                                                                                                                                     |
+| `tmux-yazi <pane-id>`                                                  | yazi in a popup that relays its `--cwd-file` back to the originating pane on quit, so `Q` leaves you where you browsed. Bound to `prefix+y`; invoked as `bash ~/.local/bin/tmux-yazi` since the file isn't executable. Only injects `cd` if the pane is at a shell prompt.                                                                                                                          |
+| `pr-review.py <pr-number> [--no-cleanup]`                              | Check a PR out into a throwaway git worktree and review it with Claude Code. Not executable — run it as `python ~/.local/bin/pr-review.py 123`.                                                                                                                                                                                                                                                     |
+| `toolchain-check [-v] [-u]`                                            | Execute every external binary helix invokes and report which ones actually run. Exists because `hx --health` only stats the file, so a broken node interpreter shows ✓ while prettier and the node-based language servers are all dead. Distinguishes _broken_ from _missing for the active node version_ and prints the right recovery command for each. `-u` also checks npm globals for updates. |
 
 Two shell functions live in `.zshrc` rather than on `PATH`, because they have to change the _current_ shell or shell out to python:
 
@@ -124,16 +215,20 @@ Rust toolchain (builds helix itself, and provides `rust-analyzer`):
 `sync.sh` and the setup below run in **opposite directions**, and only one of them is automated:
 
 - `./sync.sh` pulls `~/` → repo. It's the normal path: edit the live config, then sync.
-- `cp -r home/. ~/` pushes repo → `~/`. Only for a fresh machine, or to undo something.
+- `rsync -a --exclude '.claude/' home/ ~/` pushes repo → `~/`. Only for a fresh machine, or to undo something.
 
 So editing a file in this repo and then running `./sync.sh` silently discards the edit — the live copy wins. Edit `~/` and sync, or push the repo copy out first.
 
+**The push direction must exclude `.claude/`**, for the same reason the paragraph above says live is the source of truth there. A plain `cp -r home/. ~/` would replace the live 37KB `~/.claude/settings.json` with the tracked 4KB sanitized subset — 159 lines gone, including `spinnerVerbs` — plus 50 lines of `statusline.sh` and 19 of `CLAUDE.md`. `sync.sh` already excludes `.claude` in the pull direction; the push has to match.
+
+For a one-off change, copy just the files you touched rather than the whole tree.
+
 ```sh
-cp -r home/. ~/   # copies dotfiles + .config/ (the trailing `.` makes cp include hidden files)
+rsync -a --exclude '.claude/' home/ ~/   # everything except .claude, which live owns
 
 # cp keeps the *destination's* mode when a file already exists, so re-runs can
 # silently drop the exec bit. Put it back on the scripts that need it.
-chmod +x ~/.local/bin/{cpf,claude-control,git-cleanup-branches,tmux-pane-picker,tmux-send-pane}
+chmod +x ~/.local/bin/{cpf,claude-control,git-cleanup-branches,tmux-pane-picker,tmux-send-pane,toolchain-check}
 
 # Symlink rustup's nightly rust-analyzer into PATH (used by helix via $HOME/bin).
 mkdir -p ~/bin
