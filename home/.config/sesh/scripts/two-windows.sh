@@ -13,6 +13,6 @@ tmux split-window -h
 clear
 tmux select-layout even-horizontal
 
-# Go back to editor window and start nvim (must be last, it blocks)
+# Go back to the editor window (left as a shell — start hx yourself)
 tmux select-window -t 0
 

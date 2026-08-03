@@ -31,7 +31,7 @@ CONFIG_DIRS=(
     gh-dash
     ghostty
     git
-    nvim
+    ruff
     sesh
     "tmux plugins"   # skip plugins — managed by tpm
     "helix runtime"  # skip runtime — symlink to built-from-source tree

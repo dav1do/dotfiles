@@ -1,0 +1,30 @@
+# Global ruff config — applies to any Python outside a project that defines its own.
+#
+# Ruff looks for this at ${config_dir}/ruff/pyproject.toml (on macOS/Linux:
+# ~/.config/ruff/pyproject.toml). It must be named pyproject.toml, which is why
+# the sections carry the [tool.ruff] prefix — a standalone ruff.toml would use
+# bare [lint]/[format] instead.
+#
+# Precedence: ruff does NOT merge configs. A repo with its own [tool.ruff]
+# section replaces this file wholesale rather than extending it. A repo whose
+# pyproject.toml has no [tool.ruff] section does *not* block this file — it
+# still applies. (Verified: a bare [project]-only pyproject still picked up the
+# select list and line-length set here.)
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "W",  # pycodestyle warnings
+    "I",  # isort
+    "UP", # pyupgrade
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E501", # line too long — the formatter owns line length
+]
+
+[tool.ruff.format]
+# Ruff's default, stated explicitly: match the wider Python ecosystem rather
+# than personal preference, so scripts don't churn against other people's tools.
+quote-style = "double"

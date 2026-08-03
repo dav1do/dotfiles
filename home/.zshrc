@@ -8,8 +8,8 @@ fi
 setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_FIND_NO_DUPS
 
-# in case nvim is installed from source
-export PATH="/opt/homebrew/opt/llvm/bin":"$HOME/bin":"$HOME/bin/nvim/bin":"/Users/david/.codeium/windsurf/bin":$PATH
+# $HOME/bin holds the rust-analyzer symlink (see README)
+export PATH="/opt/homebrew/opt/llvm/bin":"$HOME/bin":"/Users/david/.codeium/windsurf/bin":$PATH
 
 # ignore ctrl+d
 set -o ignoreeof
@@ -126,7 +126,6 @@ source $ZSH/oh-my-zsh.sh
 # fi
 export EDITOR="hx"
 export VISUAL="hx"
-#export MANPAGER='nvim +Man!'
 export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 export MANROFFOPT="-c"   # avoids garbled output on some systems
 # Compilation flags

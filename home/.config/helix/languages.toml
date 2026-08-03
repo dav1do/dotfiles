@@ -1,58 +1,53 @@
+# NOTE: helix merges user languages.toml with its default at depth 3, which runs
+# out exactly at `[language-server.<name>.config]`. That table is REPLACED, not
+# merged, so every helix default worth keeping has to be restated here.
+# Only non-default values belong below — defaults verified against
+# `rust-analyzer --print-config-schema`.
 [language-server.rust-analyzer.config]
-checkOnSave = true
-procMacro.enable = true
-
-[language-server.rust-analyzer.config.cargo]
-allFeatures = false
-loadOutDirsFromCheck = true
-buildScripts = { enable = true }
-
-[language-server.rust-analyzer.config.check]
-command = "clippy"
-
-[language-server.rust-analyzer.config.diagnostics]
-disabled = ["inactive-code", "unresolved-proc-macro", "syntax-error", "unresolved-macro-call"]
-
-[language-server.rust-analyzer.config.files]
-exclude = [".direnv", ".devenv", "target", "node_modules", "nix"]
+check.command = "check"                                          # clippy alternative
+files.watcher = "server"                                          # ra: "client" — helix default, lost to the clobber
+files.exclude = [".direnv", ".devenv", "target", "node_modules", "nix"]
+diagnostics.disabled = ["inactive-code", "unresolved-proc-macro"]
 
 [language-server.rust-analyzer.config.inlayHints]
-closureReturnTypeHints = { enable = "with_block" }
-lifetimeElisionHints = { enable = "skip_trivial" }
-typeHints = { enable = true }
-bindingModeHints = { enable = true }
-closureCaptureHints = { enable = true }
+bindingModeHints.enable = true                                    # ra: false
+closureCaptureHints.enable = true                                 # ra: false
+closureReturnTypeHints.enable = "with_block"                      # ra: "never" — helix default
+lifetimeElisionHints.enable = "skip_trivial"                      # ra: "never" — helix default
 
-[[language]]
-name = "rust"
-auto-format = true
+# rust already has auto-format = true in helix's defaults, so no [[language]]
+# block is needed for it.
 
+# vtsls needs no [language-server] block: helix's default already defines it
+# identically and adds config.vtsls.autoUseWorkspaceTsdk = true.
+# eslint is installed but helix only wires it into gjs/gts by default.
 [[language]]
 name = "typescript"
-language-servers = ["vtsls"]
+language-servers = ["vtsls", "vscode-eslint-language-server"]
 auto-format = true
 formatter = { command = "prettier", args = ["--parser", "typescript"] }
 
 [[language]]
 name = "tsx"
-language-servers = ["vtsls"]
+language-servers = ["vtsls", "vscode-eslint-language-server"]
 auto-format = true
 formatter = { command = "prettier", args = ["--parser", "typescript"] }
 
-[language-server.vtsls]
-command = "vtsls"
-args = ["--stdio"]
-
 [[language]]
 name = "javascript"
+language-servers = ["vtsls", "vscode-eslint-language-server"]
 auto-format = true
 formatter = { command = "prettier", args = ["--parser", "babel"] }
 
 [[language]]
 name = "jsx"
+language-servers = ["vtsls", "vscode-eslint-language-server"]
 auto-format = true
 formatter = { command = "prettier", args = ["--parser", "babel"] }
 
+# vtsls has no JSON support (it wraps vscode's TypeScript extension only), so
+# vscode-json-language-server stays. It comes from the `vscode-langservers-extracted`
+# brew formula, which is also where vscode-eslint-language-server above comes from.
 [[language]]
 name = "json"
 auto-format = true

@@ -1,4 +1,4 @@
-alias vim='nvim'
+alias vim='hx'
 
 # history shortcuts (formerly from omz `history` plugin)
 alias h='history'
@@ -20,19 +20,16 @@ alias lhr='lefthook run'
 
 alias wsl_ssh_ip='arp -a | rg "2c:f0:5d:f0:42:ed"'
 
-# after upgrading alacritty, if it won't open, run:
-alias install_nvim_nightly='make CMAKE_BUILD_TYPE=RelWithDebInfo CMAKE_INSTALL_PREFIX=$HOME/bin/nvim install'
-
 # additions (omz has no bare `gs`/`unwip`)
 alias gs='git status'
-alias unwip='git reset HEAD~1'   # omz's gunwip is safer (only resets if HEAD is a --wip--)
+alias unwip='git reset HEAD~1' # omz's gunwip is safer (only resets if HEAD is a --wip--)
 
 # overrides (omz uses these names for other things — keep mine)
 # alias ga='git add .'                     # omz: git add
-alias gcm='git commit -m'                 # omz: git checkout main  ⚠️
-alias gca='git commit --amend --no-edit'  # omz: git commit -v -a
+alias gcm='git commit -m'                # omz: git checkout main  ⚠️
+alias gca='git commit --amend --no-edit' # omz: git commit -v -a
 alias gl='git log --graph --pretty=format:'\''%Cred%h%Creset %C(magenta)%G?%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'\'' --abbrev-commit'
-
+alias gg='git pull' # gl in zsh git plugin (git get mnemonic)
 alias tf='terraform'
 
 alias k='kubectl'

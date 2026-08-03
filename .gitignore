@@ -1,7 +1,5 @@
 .config/tmux/plugins
 .config/iterm2/AppSupport
-.config/nvim/.git
-.config/nvim/.claude
 
 # Compiled Lua sources
 luac.out
@@ -44,8 +42,4 @@ luac.out
 *.x86_64
 *.hex
 
-nvim.log
-nvim.log
-
 .DS_Store
-nvim.log
