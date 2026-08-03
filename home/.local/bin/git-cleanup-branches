@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+#
+# git-cleanup-branches.sh — categorize and prune local branches.
+#
+# Buckets every local branch into one of:
+#   merged      ancestor of the base branch        -> safe delete (git -d verifies)
+#   gone        upstream was deleted on the remote  -> squash-merged or closed PR
+#   local-only  never had an upstream               -> genuinely orphaned; never auto-deleted
+#   diverged    upstream exists, ahead AND behind   -> kept, flagged
+#   active      upstream exists, in sync/ahead       -> kept
+#
+# Default is a dry run: it prints the buckets and deletes nothing.
+# The current branch and the base branch are always protected.
+#
+# Usage:
+#   git-cleanup-branches.sh [--base <branch>] [--merged] [--gone] [--all]
+#                           [--verify-pr] [--yes] [--no-fetch]
+#
+#   --merged      delete the "merged" bucket (git branch -d; git refuses if unmerged)
+#   --gone        delete the "gone" bucket   (git branch -D; force — see --verify-pr)
+#   --all         shorthand for --merged --gone
+#   --verify-pr   for the gone bucket, ask GitHub (gh) whether the branch's PR was
+#                 actually MERGED. Branches whose PR was CLOSED-unmerged or has no PR
+#                 are kept. This is how you split "merged" from "orphaned".
+#   --yes         skip the confirmation prompt
+#   --no-fetch    skip the initial `git fetch --prune`
+#
+# local-only branches are never deleted by this script — list them and decide by hand.
+
+set -euo pipefail
+
+BASE=main
+DO_MERGED=0
+DO_GONE=0
+VERIFY_PR=0
+ASSUME_YES=0
+DO_FETCH=1
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --base)       BASE="$2"; shift 2 ;;
+    --merged)     DO_MERGED=1; shift ;;
+    --gone)       DO_GONE=1; shift ;;
+    --all)        DO_MERGED=1; DO_GONE=1; shift ;;
+    --verify-pr)  VERIFY_PR=1; shift ;;
+    --yes|-y)     ASSUME_YES=1; shift ;;
+    --no-fetch)   DO_FETCH=0; shift ;;
+    -h|--help)    sed -n '2,30p' "$0"; exit 0 ;;
+    *) echo "unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
+git rev-parse --git-dir >/dev/null 2>&1 || { echo "not a git repo" >&2; exit 1; }
+git show-ref --verify --quiet "refs/heads/$BASE" || { echo "base branch '$BASE' not found" >&2; exit 1; }
+
+CURRENT=$(git branch --show-current)
+
+if [ "$DO_FETCH" -eq 1 ]; then
+  echo "fetching + pruning..."
+  git fetch --prune --quiet
+fi
+
+merged=();    local_only=();  diverged=();  active=()
+gone=();      # gone-and-not-ancestor (the squash/closed bucket)
+
+while IFS='|' read -r name up track; do
+  [ -z "$name" ] && continue
+  [ "$name" = "$CURRENT" ] && continue          # never the checked-out branch
+  [ "$name" = "$BASE" ] && continue             # never the base
+  case "$name" in main|master) continue ;; esac # belt and suspenders
+
+  if git merge-base --is-ancestor "$name" "$BASE" 2>/dev/null; then
+    merged+=("$name")                           # truly merged (fast-forward/ancestor)
+  elif [ "$track" = "[gone]" ]; then
+    gone+=("$name")                             # remote deleted, not an ancestor
+  elif [ -z "$up" ]; then
+    local_only+=("$name")                       # never pushed
+  elif printf '%s' "$track" | grep -q 'ahead.*behind'; then
+    diverged+=("$name")
+  else
+    active+=("$name")
+  fi
+done < <(git for-each-ref --format='%(refname:short)|%(upstream:short)|%(upstream:track)' refs/heads/)
+
+print_bucket() { # $1=label  $2..=branches
+  local label="$1"; shift
+  printf '\n%s (%d)\n' "$label" "$#"
+  [ "$#" -eq 0 ] && { printf '  (none)\n'; return; }
+  printf '  %s\n' "$@"
+}
+
+print_bucket "MERGED into $BASE — safe to delete (-d)" "${merged[@]:-}"
+print_bucket "GONE (remote deleted) — squash-merged or closed PR (-D)" "${gone[@]:-}"
+print_bucket "LOCAL-ONLY (never pushed) — never auto-deleted, review by hand" "${local_only[@]:-}"
+print_bucket "DIVERGED (ahead+behind) — kept" "${diverged[@]:-}"
+print_bucket "ACTIVE (live upstream) — kept" "${active[@]:-}"
+
+# Build the deletion list.
+to_delete_safe=()    # use -d
+to_delete_force=()   # use -D
+[ "$DO_MERGED" -eq 1 ] && to_delete_safe=("${merged[@]:-}")
+
+if [ "$DO_GONE" -eq 1 ]; then
+  if [ "$VERIFY_PR" -eq 1 ]; then
+    command -v gh >/dev/null 2>&1 || { echo "--verify-pr needs the gh CLI" >&2; exit 1; }
+    printf '\nverifying PR state for gone branches via gh...\n'
+    kept_unmerged=()
+    for b in "${gone[@]:-}"; do
+      [ -z "$b" ] && continue
+      state=$(gh pr list --head "$b" --state all --json state --jq '.[0].state // "NONE"' 2>/dev/null || echo "ERR")
+      case "$state" in
+        MERGED)        to_delete_force+=("$b") ;;
+        CLOSED|NONE)   kept_unmerged+=("$b (PR: $state)") ;;
+        *)             kept_unmerged+=("$b (PR: $state)") ;;
+      esac
+    done
+    print_bucket "GONE but kept — PR not merged / not found" "${kept_unmerged[@]:-}"
+  else
+    to_delete_force=("${gone[@]:-}")
+  fi
+fi
+
+# Compact arrays (strip the ":-" empty placeholder).
+to_delete_safe=("${to_delete_safe[@]}")
+to_delete_force=("${to_delete_force[@]}")
+total=$(( ${#to_delete_safe[@]} + ${#to_delete_force[@]} ))
+
+if [ "$total" -eq 0 ]; then
+  printf '\nNothing selected for deletion. Pass --merged and/or --gone (optionally --verify-pr).\n'
+  exit 0
+fi
+
+printf '\nWill delete %d branch(es): %d merged (-d), %d gone (-D).\n' \
+  "$total" "${#to_delete_safe[@]}" "${#to_delete_force[@]}"
+
+if [ "$ASSUME_YES" -ne 1 ]; then
+  read -r -p "Proceed? [y/N] " ans
+  case "$ans" in y|Y|yes|YES) ;; *) echo "aborted."; exit 0 ;; esac
+fi
+
+for b in "${to_delete_safe[@]}";  do git branch -d "$b"; done
+for b in "${to_delete_force[@]}"; do git branch -D "$b"; done
+
+printf '\ndone.\n'

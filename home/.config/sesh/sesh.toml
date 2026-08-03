@@ -2,15 +2,15 @@
 
 [[session]]
 name = "dev"
-path = "~/ukon"
+path = "~/ukon/active"
 startup_command = "~/.config/sesh/scripts/work.sh"
 
 [[session]]
 name = "ukon-core"
-path = "~/ukon/ukon-core"
+path = "~/ukon/active/ukon-core"
 startup_command = "~/.config/sesh/scripts/two-windows.sh"
 
 [[session]]
 name = "ui"
-path = "~/ukon/ui"
+path = "~/ukon/active/ui"
 startup_command = "~/.config/sesh/scripts/two-windows.sh"

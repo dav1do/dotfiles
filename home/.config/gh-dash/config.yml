@@ -67,7 +67,9 @@ keybindings:
           name: enhance
           command: gh enhance -R {{.RepoName}} {{.PrNumber}}
 repoPaths:
-    titan-index/*: /Users/david/ukon/*
+    # gh-dash expands a leading ~ itself (checkout.go swaps it for $HOME); it does
+    # NOT expand env vars, so ~ is the only portable form here.
+    titan-index/*: ~/ukon/*
     # folder is lowercased; exact match overrides the wildcard
-    titan-index/RiskScore: /Users/david/ukon/riskscore
-    dav1do/dotfiles: /Users/david/mystuff/dotfiles
+    titan-index/RiskScore: ~/ukon/riskscore
+    dav1do/dotfiles: ~/mystuff/dotfiles

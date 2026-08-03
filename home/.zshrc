@@ -9,7 +9,7 @@ setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_FIND_NO_DUPS
 
 # $HOME/bin holds the rust-analyzer symlink (see README)
-export PATH="/opt/homebrew/opt/llvm/bin":"$HOME/bin":"/Users/david/.codeium/windsurf/bin":$PATH
+export PATH="/opt/homebrew/opt/llvm/bin":"$HOME/bin":"$HOME/.codeium/windsurf/bin":$PATH
 
 # ignore ctrl+d
 set -o ignoreeof
@@ -164,7 +164,7 @@ fi
 # `cdi`/`zi` interactive picker: preview dir contents with lsd. {2..} skips zoxide's score column.
 export _ZO_FZF_OPTS="--height 40% --reverse --preview 'lsd -a --color=always {2..}' --preview-window=right:50%"
 
-[ -f "/Users/david/.ghcup/env" ] && source "/Users/david/.ghcup/env" # ghcup-env
+[ -f "$HOME/.ghcup/env" ] && source "$HOME/.ghcup/env" # ghcup-env
 
 export NVM_DIR="$HOME/.nvm"
 # Lazy-load nvm — sourcing nvm.sh eagerly costs ~200ms per shell.

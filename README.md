@@ -24,7 +24,7 @@ CLI:
 - gh extensions:
   - `gh extension install dlvhdr/gh-dash` (PR/issue dashboard; bound to `prefix+h` in tmux)
   - `gh extension install dlvhdr/gh-enhance` (CI detail TUI for a PR; bound to `T` in gh-dash — see the `enhance` keybinding in `home/.config/gh-dash/config.yml`)
-- editors: `brew install helix` (or build from source)
+- editors: helix, built from source — see the helix section below
 - file managers: `brew install yazi lf`
 - formatters: `brew install prettier shfmt stylua taplo ruff`
 - tmux + session picker: `brew install tmux sesh`
@@ -53,6 +53,25 @@ tmux:
 - catppuccin theme: https://github.com/catppuccin/tmux
 - plugins install with `prefix+I` after tpm is set up
 - tmux-thumbs (hint-copy, `prefix+f`): Rust plugin — needs `cargo` (from the Rust toolchain below) to build on first install
+
+helix:
+
+Currently built from source at `~/mystuff/helix` and wired up with two symlinks. **The second one is not optional** — a source build with no runtime tree has no syntax highlighting, no themes, and no queries.
+
+(brew is at the same version, `25.07.1`. `brew install helix` handles its own runtime, so switching would make both symlinks unnecessary — the from-source setup is a choice, not a requirement.)
+
+```sh
+git clone https://github.com/helix-editor/helix ~/mystuff/helix
+cd ~/mystuff/helix && cargo build --release          # needs the Rust toolchain below
+
+sudo ln -sf ~/mystuff/helix/target/release/hx /usr/local/bin/hx   # binary onto PATH
+ln -sfn ~/mystuff/helix/runtime ~/.config/helix/runtime           # grammars, queries, themes
+```
+
+- `theme = "catppuccin_mocha"` in `config.toml` ships inside that runtime tree — nothing extra to install
+- `sync.sh` deliberately skips `.config/helix/runtime`; it's a symlink into the source checkout, not config
+- everything helix needs at runtime is in the language-servers and formatters lines above; `hx --health <lang>` confirms per language
+- `proposals/` holds migration notes from the nvim days. The npm install lines in there are superseded — those packages are all in brew now, which keeps them off nvm's node-version treadmill.
 
 Python:
 
@@ -92,13 +111,15 @@ Two shell functions live in `.zshrc` rather than on `PATH`, because they have to
 
 Aliases are in `.bash_aliases`; the ones worth knowing about are the deliberate overrides of oh-my-zsh's git plugin (`gcm`, `gca`, `gl`, `gg`), which are commented in place.
 
-Rust toolchain (for `rust-analyzer` in helix):
+Rust toolchain (builds helix itself, and provides `rust-analyzer`):
 
 - `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 - `rustup toolchain install nightly`
 - `rustup component add rust-analyzer --toolchain nightly`
 
 ### setup
+
+`.claude/` is excluded from `sync.sh` and maintained by hand, so it drifts. The tracked `settings.json` is also a deliberately sanitized subset — `spinnerVerbs` is kept only in the live `~/.claude/settings.json`, since this repo is public. Treat live as the source of truth there, not the repo.
 
 `sync.sh` and the setup below run in **opposite directions**, and only one of them is automated:
 

@@ -39,9 +39,83 @@
       "Bash(wc *)",
       "Bash(which *)",
       "Read",
-      "WebSearch"
+      "WebSearch",
+      "Bash(cargo build *)",
+      "Bash(cargo check *)",
+      "Bash(cargo clippy *)",
+      "Bash(cargo fmt *)",
+      "Bash(cargo machete *)",
+      "Bash(cargo sqlx *)",
+      "Bash(cargo test *)",
+      "Bash(make *)",
+      "Bash(sqitch status *)",
+      "Bash(sqitch verify *)",
+      "Bash(docker compose * ps *)",
+      "Bash(docker compose * logs *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:developers.glean.com)",
+      "WebFetch(domain:api.anthropic.com)",
+      "mcp__postgres__query"
     ],
-    "defaultMode": "acceptEdits"
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~*)",
+      "Bash(sudo *)",
+      "Bash(su *)",
+      "Bash(curl *| bash*)",
+      "Bash(curl *| sh*)",
+      "Bash(curl *| zsh*)",
+      "Bash(curl *| source*)",
+      "Bash(wget *| bash*)",
+      "Bash(wget *| sh*)",
+      "Bash(wget *| zsh*)",
+      "Bash(wget *| source*)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(pulumi up)",
+      "Bash(pulumi up *)",
+      "Bash(pulumi destroy)",
+      "Bash(pulumi destroy *)",
+      "Bash(pulumi refresh)",
+      "Bash(pulumi refresh *)",
+      "Bash(docker push *)",
+      "Bash(npm publish *)",
+      "Bash(yarn publish *)",
+      "Bash(pnpm publish *)",
+      "Bash(osascript *)",
+      "Bash(defaults write *)",
+      "Read(~/.ssh/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gcloud/application_default_credentials.json)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.kube/config)",
+      "Read(~/.netrc)",
+      "Read(~/.npmrc)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Read(**/gha-creds-*.json)",
+      "Read(**/*-gcs-key.json)",
+      "Read(**/.env.prod*)",
+      "Read(**/.env.staging*)",
+      "Edit(**/.env.prod*)",
+      "Edit(**/.env.staging*)",
+      "Write(**/.env.prod*)",
+      "Write(**/.env.staging*)"
+    ],
+    "ask": [
+      "Bash(git push *--force*)",
+      "Bash(git push *-f *)",
+      "Bash(git push -f *)",
+      "Bash(git push -f)",
+      "Bash(brew install *)"
+    ],
+    "defaultMode": "auto",
+    "disableBypassPermissionsMode": "disable"
   },
   "hooks": {
     "SessionStart": [
@@ -50,18 +124,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /Users/david/.claude/hooks/worktree-setup.sh"
-          }
-        ]
-      }
-    ],
-    "Notification": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /Users/david/.local/bin/claude-bell-notify.sh"
+            "command": "bash \"$HOME/.claude/hooks/worktree-setup.sh\""
           }
         ]
       }
@@ -69,12 +132,28 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "bash /Users/david/.claude/statusline.sh"
+    "command": "bash \"$HOME/.claude/statusline.sh\""
   },
   "enabledPlugins": {
-    "pr-review-toolkit@ukon-approved": true,
-    "commit-commands@ukon-approved": true
+    "code-review@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "session-report@claude-plugins-official": true,
+    "security-hooks@ukon-plugins": true
   },
   "extraKnownMarketplaces": {},
+  "promptSuggestionEnabled": false,
+  "tui": "fullscreen",
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  },
+  "autoDreamEnabled": true,
+  "editorMode": "vim",
+  "autoScrollEnabled": true,
+  "agentPushNotifEnabled": false,
+  "skipAutoPermissionPrompt": true,
+  "voiceEnabled": true,
   "color": "purple"
 }

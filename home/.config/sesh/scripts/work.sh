@@ -6,9 +6,9 @@ set -euo pipefail
 
 # name : path   (edit here to add/remove sessions)
 sessions=(
-  "ukon-core:$HOME/ukon/ukon-core"
-  "ui:$HOME/ukon/ui"
-  "ukon:$HOME/ukon"
+  "ukon-core:$HOME/ukon/active/ukon-core"
+  "ui:$HOME/ukon/active/ui"
+  "ukon:$HOME/ukon/active"
 )
 
 for entry in "${sessions[@]}"; do

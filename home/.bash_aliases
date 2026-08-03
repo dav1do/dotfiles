@@ -18,7 +18,9 @@ alias locate='mdfind' # spotlight on mac
 
 alias lhr='lefthook run'
 
-alias wsl_ssh_ip='arp -a | rg "2c:f0:5d:f0:42:ed"'
+# Find the WSL box's IP by its MAC. Set WSL_MAC in ~/.zshrc.local (gitignored,
+# never synced) — the MAC is a hardware identifier, so it stays out of this repo.
+alias wsl_ssh_ip='arp -a | rg "${WSL_MAC:?set WSL_MAC in ~/.zshrc.local}"'
 
 # additions (omz has no bare `gs`/`unwip`)
 alias gs='git status'
