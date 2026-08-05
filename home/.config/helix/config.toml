@@ -147,6 +147,15 @@ L = ":log-open"
 # `=` because that's already format-selection in normal mode; `:format` is the
 # whole-file version and, unlike `=`, goes through the external formatter too.
 "=" = ":format"
+# z as in zen: the current file, rendered and centered in a reading column, for
+# long markdown when helix is parked off to one side of a wide monitor. Lowercase
+# is an ephemeral popup, uppercase its own window with nothing live behind it —
+# same split as g/G and y/Y in tmux.conf. `:update` first because the reader
+# reads from disk, not the buffer. `:sh` is async (it registers a job), so helix
+# keeps running underneath; quitting the reader (q) closes the popup or window.
+# Absolute path because neither one's PATH is guaranteed.
+z = [":update", ":sh ~/.local/bin/tmux-read --popup '%{file_path_absolute}'"]
+Z = [":update", ":sh ~/.local/bin/tmux-read --window '%{file_path_absolute}'"]
 
 # `:toggle` flips editor config live and applies to every buffer — there is no
 # per-buffer wrap. It needs the key to already have a non-null value, which is
