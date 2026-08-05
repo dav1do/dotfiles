@@ -1,0 +1,128 @@
+{
+  "document": {
+    "block_prefix": "\n",
+    "block_suffix": "\n",
+    "color": "#cdd6f4",
+    "margin": 2
+  },
+  "paragraph": {},
+  "text": {},
+
+  "block_quote": {
+    "color": "#a6adc8",
+    "italic": true,
+    "indent": 1,
+    "indent_token": "│ "
+  },
+
+  "heading": {
+    "block_suffix": "\n",
+    "bold": true
+  },
+  "h1": {
+    "prefix": " ",
+    "suffix": " ",
+    "color": "#11111b",
+    "background_color": "#cba6f7",
+    "bold": true
+  },
+  "h2": {
+    "prefix": "## ",
+    "color": "#89b4fa",
+    "bold": true
+  },
+  "h3": {
+    "prefix": "### ",
+    "color": "#94e2d5",
+    "bold": true
+  },
+  "h4": {
+    "prefix": "#### ",
+    "color": "#f9e2af",
+    "bold": true
+  },
+  "h5": {
+    "prefix": "##### ",
+    "color": "#f5c2e7",
+    "bold": true
+  },
+  "h6": {
+    "prefix": "###### ",
+    "color": "#9399b2",
+    "bold": true
+  },
+
+  "strong": {
+    "color": "#f9e2af",
+    "bold": true
+  },
+  "emph": {
+    "italic": true
+  },
+  "strikethrough": {
+    "color": "#6c7086",
+    "crossed_out": true
+  },
+
+  "hr": {
+    "color": "#45475a",
+    "format": "\n────────────────────────\n"
+  },
+
+  "list": {
+    "level_indent": 2
+  },
+  "item": {
+    "block_prefix": "• "
+  },
+  "enumeration": {
+    "block_prefix": ". "
+  },
+  "task": {
+    "ticked": "[✓] ",
+    "unticked": "[ ] "
+  },
+
+  "link": {
+    "color": "#74c7ec",
+    "underline": true
+  },
+  "link_text": {
+    "color": "#b4befe",
+    "bold": true
+  },
+  "image": {
+    "color": "#74c7ec",
+    "underline": true
+  },
+  "image_text": {
+    "color": "#9399b2",
+    "format": "image: {{.text}}"
+  },
+
+  "code": {
+    "color": "#eba0ac"
+  },
+  "code_block": {
+    "margin": 2,
+    "theme": "catppuccin-mocha"
+  },
+
+  "table": {
+    "center_separator": "┼",
+    "column_separator": "│",
+    "row_separator": "─"
+  },
+
+  "definition_list": {},
+  "definition_term": {
+    "color": "#b4befe",
+    "bold": true
+  },
+  "definition_description": {
+    "block_prefix": "\n  ⠿ "
+  },
+
+  "html_block": {},
+  "html_span": {}
+}

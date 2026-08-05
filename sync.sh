@@ -38,6 +38,11 @@ CONFIG_DIRS=(
     "yazi plugins"   # skip plugins — pinned in package.toml, `ya pkg install`
 )
 
+# ── ~/Library/Preferences directories (macOS-only config homes) ──
+LIBRARY_DIRS=(
+    glow             # glow.yml + the glamour style JSONs it points at
+)
+
 # ── ~/ dotfiles (copied to home/) ──
 HOME_FILES=(
     .bash_aliases
@@ -61,6 +66,17 @@ for entry in "${CONFIG_DIRS[@]}"; do
         # dotfiles is the permanent track; any nested .git in the
         # destination is a local-only artifact that shouldn't live here.
         rm -rf "$DOTFILES/home/.config/$dir/.git"
+        echo "    $dir"
+    else
+        echo "    $dir (not found, skipping)"
+    fi
+done
+
+echo "==> Syncing ~/Library/Preferences directories..."
+for dir in "${LIBRARY_DIRS[@]}"; do
+    src="$HOME/Library/Preferences/$dir"
+    if [[ -d "$src" ]]; then
+        copy_dir "$src" "$DOTFILES/home/Library/Preferences/$dir"
         echo "    $dir"
     else
         echo "    $dir (not found, skipping)"

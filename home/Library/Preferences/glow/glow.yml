@@ -1,0 +1,15 @@
+# style name or JSON path (default "auto"). Must be an absolute literal path:
+# glow expands ~ and $VARS when it checks the file exists, but hands the raw
+# string to glamour when it renders, so anything unexpanded fails to open.
+style: "/Users/david/Library/Preferences/glow/catppuccin-mocha-pop.json"
+#style: "/Users/david/Library/Preferences/glow/catppuccin-mocha-bar.json"
+#style: "/Users/david/Library/Preferences/glow/catppuccin-mocha.json"
+#style: auto
+# mouse support (TUI-mode only)
+mouse: true
+# use pager to display markdown
+pager: true
+# word-wrap at width
+# width: 100
+# show all files, including hidden and ignored.
+all: false
