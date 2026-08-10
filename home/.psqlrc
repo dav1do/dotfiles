@@ -3,11 +3,21 @@
 \set QUIET 1
 
 \timing on
-\x auto
+-- off, not auto: pspg scrolls wide rows sideways with the header and key
+-- column frozen, which beats expanded mode. \x on is still there per-query.
+\x off
 \pset null 'NULL'
 \pset linestyle unicode
 \pset border 2
-\setenv PAGER 'less -SFX'
+-- pspg pages query results; PAGER stays plain less for \h and \? help text.
+-- -F skips the pager when output fits one screen, -X leaves it in scrollback.
+\setenv PSQL_PAGER 'pspg -F -X -c 1 --custom-style=catppuccin'
+\setenv PAGER 'less -FX'
+
+-- :less falls back to a plain pager (mouse-select / copy out of a result),
+-- :pspg goes back. Long JSON is a query-side problem: use jsonb_pretty().
+\set less '\\setenv PSQL_PAGER ''less -FX'''
+\set pspg '\\setenv PSQL_PAGER ''pspg -F -X -c 1 --custom-style=catppuccin'''
 
 \set HISTFILE ~/.psql_history- :DBNAME
 \set HISTSIZE 10000

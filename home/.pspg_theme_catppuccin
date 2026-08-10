@@ -1,0 +1,52 @@
+template = 5
+template_menu = 8
+
+background        = Default, Default
+data              = Default, Default
+border            = #6c7086, Default
+label             = #b4befe, Default, bold
+row_number        = #6c7086, Default
+record_number     = #cba6f7, Default, bold
+footer            = #9399b2, Default
+
+cursor_data          = #1e1e2e, #89b4fa
+cursor_label         = #1e1e2e, #89b4fa, bold
+cursor_border        = #74c7ec, #89b4fa
+cursor_row_number    = #1e1e2e, #89b4fa
+cursor_record_number = #1e1e2e, #89b4fa
+cursor_footer        = #1e1e2e, #89b4fa
+
+cross_cursor        = #1e1e2e, #f9e2af, bold
+cross_cursor_border = #f9e2af, #f9e2af
+
+selected_area        = #1e1e2e, #b4befe
+cursor_selected_area = #1e1e2e, #f5c2e7
+
+title      = #cba6f7, Default, bold
+status_bar = #a6adc8, #313244
+prompt_bar = #cdd6f4, #313244
+input_bar  = #cdd6f4, #313244
+info_bar   = #1e1e2e, #a6e3a1
+error_bar  = #1e1e2e, #f38ba8, bold
+error      = #f38ba8, Default, bold
+
+matched_pattern                     = #1e1e2e, #f9e2af, bold
+mathed_pattern_nohl                 = #f9e2af, Default
+matched_line                        = #cdd6f4, Default
+matched_line_border                 = #6c7086, Default
+matched_pattern_cursor              = #1e1e2e, #fab387, bold
+matched_line_vertical_cursor        = #1e1e2e, #f9e2af
+matched_line_vertical_cursor_border = #f9e2af, #f9e2af
+
+bookmark        = #1e1e2e, #f38ba8, bold
+bookmark_border = #f38ba8, #f38ba8
+cursor_bookmark = #f38ba8, #1e1e2e, bold
+
+scrollbar_arrows        = #6c7086, Default
+scrollbar_background    = #313244, Default
+scrollbar_slider        = #89b4fa, Default
+scrollbar_active_slider = #cba6f7, Default
+
+data*   = #a6adc8, Default
+label*  = #b4befe, Default, bold
+border* = #6c7086, Default

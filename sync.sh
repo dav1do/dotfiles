@@ -49,6 +49,7 @@ HOME_FILES=(
     .gitconfig
     .gitignore
     .p10k.zsh
+    .pspg_theme_catppuccin
     .psqlrc
     .sqliterc
     .zprofile

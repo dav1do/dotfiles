@@ -10,9 +10,35 @@ CLI:
 - dev: `brew install gh lazygit direnv git-delta protobuf`
   - `git-delta` is wired in as git's pager and `interactive.diffFilter` (see `.gitconfig`) — without it, `git diff` fails.
 - build-from-source deps (helix, tmux-thumbs): `brew install cmake ninja curl`
-- databases (match `.psqlrc` / `.sqliterc`): `brew install postgresql@16 libpq@16 pgvector sqldiff`
+- databases (match `.psqlrc` / `.sqliterc`): `brew install postgresql@16 libpq@16 pgvector sqldiff pspg`
   - migrations: `brew install sqitchers/sqitch/sqitch cpm` (sqitch is a Perl app; `cpm` installs its CPAN deps)
   - GCP: `brew install cloud-sql-proxy`
+  - `pspg` is psql's pager, set as `PSQL_PAGER` in `.psqlrc` — frozen header row while you scroll
+    right, cursor navigation, `/` search, `a`/`d` sort, F9 for the menu and theme picker. `PAGER`
+    stays plain `less` so `\h` help text is unaffected. `:less` / `:pspg` switch mid-session.
+  - theme is `.pspg_theme_catppuccin` (Mocha), loaded by `--custom-style=catppuccin`. pspg looks
+    for it at `dirname($PSPG_CONF)/.pspg_theme_<name>`, and `PSPG_CONF` defaults to `~/.pspgconf`
+    — so the file has to sit at `~/.pspg_theme_catppuccin`, not under `~/.config`.
+    - it sets `template = 5` (Mutt) because that is one of only three built-ins — `0`, `5`, `16`
+      — that leave background/data/border as terminal `Default`. Every other built-in, Dracula
+      included, hardcodes its own background and fights the terminal. Only accents are overridden.
+    - **no `#` comments in that file** — `#` is the hex-color prefix, so a comment line parses as
+      a broken RGB value and pspg nags "some fields ignored" on every query. Keep it keys-only.
+    - the key for unhighlighted search matches is `mathed_pattern_nohl`. That misspelling is
+      upstream in `theme_loader.c`; the README's `matched_pattern_nohl` silently does nothing.
+    - `template_menu = 8` (NOCOLOR) is deliberate, not laziness. The menu templates are a separate
+      enum in `st_menu.h`, unrelated to the table theme numbers, and most force their own colors.
+      `5` (FAND_2) sets the accelerator pair to `COLOR_CYAN, COLOR_CYAN` in `st_menu_styles.c` —
+      hotkey letters invisible against their own background, so F9 reads "ile / earch / ommand".
+      `8` inherits the terminal and underlines accelerators instead; it also has `shadow_width = 0`,
+      which drops the light drop-shadow the other styles smear to the right of the dropdown.
+    - `label` colors the header row *and* any frozen column (`-c 1`), with no way to split them —
+      so it stays muted lavender rather than mauve; a whole frozen id column of accent is too loud.
+    - to debug it: `pspg --log=/tmp/pspg.log …` records every rejected line.
+  - `-c 1` freezes the first column so it stays put while you scroll right. That's what makes
+    `\x off` (rather than `auto`) workable — wide rows scroll sideways instead of going expanded.
+  - it pages tables, it does not format JSON — for a wide jsonb column use
+    `select jsonb_pretty(col) …` with `\x on` for that query.
 - yazi previewers: `brew install poppler ffmpeg sevenzip` (PDF / video / archive previews — yazi calls these implicitly, they aren't named in `yazi.toml`)
 - docs: `brew install pandoc typst`
 - language servers, native: `brew install marksman ruff`; `rust-analyzer` via rustup (below)
@@ -212,10 +238,20 @@ Rust toolchain (builds helix itself, and provides `rust-analyzer`):
 
 `.claude/` is excluded from `sync.sh` and maintained by hand, so it drifts. The tracked `settings.json` is also a deliberately sanitized subset — `spinnerVerbs` is kept only in the live `~/.claude/settings.json`, since this repo is public. Treat live as the source of truth there, not the repo.
 
-`sync.sh` and the setup below run in **opposite directions**, and only one of them is automated:
+`sync.sh` and `bootstrap.sh` run in **opposite directions**:
 
 - `./sync.sh` pulls `~/` → repo. It's the normal path: edit the live config, then sync.
-- `rsync -a --exclude '.claude/' home/ ~/` pushes repo → `~/`. Only for a fresh machine, or to undo something.
+- `./bootstrap.sh` pushes repo → `~/` and installs everything in the "Tools" section above. Only for a fresh machine, or to undo something.
+
+```sh
+git clone https://github.com/<you>/dotfiles ~/mystuff/dotfiles && cd ~/mystuff/dotfiles
+./bootstrap.sh -n all      # print every command, change nothing
+./bootstrap.sh             # brew → files → shell → rust → node → helix → plugins → check
+./bootstrap.sh files       # or one phase at a time
+./bootstrap.sh update      # brew upgrade + gh/yazi/tpm/rustup + toolchain-check -u
+```
+
+Every phase is idempotent. It leaves GPG, Claude Code and `~/.claude/` to be done by hand and says so at the end. If you'd rather do the file half manually, that's `rsync -a --exclude '.claude/' home/ ~/` plus the `chmod +x` below.
 
 So editing a file in this repo and then running `./sync.sh` silently discards the edit — the live copy wins. Edit `~/` and sync, or push the repo copy out first.
 
