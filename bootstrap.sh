@@ -32,6 +32,7 @@ FORMULAE=(
   shfmt stylua taplo                            # formatters (+ ruff above)
   tmux sesh                                     # tmux + session picker
   kubectl                                       # k8s
+  bottom macmon                                 # system monitors (bottom's binary is btm)
 )
 
 CASKS=(

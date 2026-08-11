@@ -58,6 +58,10 @@ CLI:
 - formatters: `brew install shfmt stylua taplo ruff` — plus `prettier`, which comes from nvm (node section below), not brew
 - tmux + session picker: `brew install tmux sesh`
 - k8s: `brew install kubectl`
+- system monitors: `brew install bottom macmon`
+  - `bottom` installs as `btm`, not `bottom` — cross-platform process/CPU/mem/net graphs
+  - `macmon` is Apple-silicon only: reads SMC/IOReport for per-cluster CPU + GPU + ANE power draw
+    and temps, which `btm` and Activity Monitor don't show
 - nvm: https://github.com/nvm-sh/nvm — the only node source; `.zshenv` puts the default version on `PATH`, `.zshrc` keeps lazy stubs for switching. See the node section below
 - claude code: https://docs.claude.com/en/docs/claude-code
 
