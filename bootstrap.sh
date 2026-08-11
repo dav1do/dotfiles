@@ -178,11 +178,21 @@ phase_brew() {
 
 phase_files() {
   say "Pushing repo -> ~/"
-  # --exclude .claude/: live owns it. The tracked settings.json is a sanitized
-  # subset (spinnerVerbs and friends only exist live), so a plain copy would
-  # clobber the real one. sync.sh excludes it in the pull direction too.
+  # --exclude .claude/: handled separately below, because settings.json must not
+  # ride along.
   run rsync -a --exclude '.claude/' --exclude '.DS_Store' "$DOTFILES/home/" "$HOME/"
   info "everything except .claude/"
+
+  # Live owns settings.json: it carries per-project permission grants and UI
+  # keys (spinnerVerbs and friends) that the tracked copy omits on purpose, so a
+  # plain copy would clobber the real one. Merge that file by hand. Everything
+  # else under .claude/ round-trips — see CLAUDE_PATHS in sync.sh for what
+  # sync.sh pulls back, and why skills/ and agents/ aren't in it.
+  if [[ -d "$DOTFILES/home/.claude" ]]; then
+    run rsync -a --exclude 'settings.json' --exclude '.DS_Store' \
+      "$DOTFILES/home/.claude/" "$HOME/.claude/"
+    info ".claude/ (except settings.json — merge that one by hand)"
+  fi
 
   local missing=()
   for s in "${EXEC_SCRIPTS[@]}"; do
@@ -396,8 +406,9 @@ phase_check() {
       - GPG: install GPG Suite from https://gpgtools.org/, import your key,
         then check `git config --get user.signingkey` resolves.
       - claude code: https://docs.claude.com/en/docs/claude-code
-      - ~/.claude/ is not pushed by this script. Copy the bits you want from
-        home/.claude/ by hand; live is the source of truth there.
+      - ~/.claude/settings.json is the one file this script won't push. Live
+        holds per-project permission grants the tracked copy omits, so merge
+        home/.claude/settings.json into it by hand.
       - corepack per node version you develop on: `corepack enable`
         (not bundled from node 25 on — add it to default-packages if needed).
 EOF

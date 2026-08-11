@@ -64,6 +64,25 @@ HOME_FILES=(
     .zshrc
 )
 
+# ── ~/.claude entries (copied to home/.claude) ──
+# Named individually rather than syncing the directory, because most of what
+# lives there must never land here: projects/ and todos/ are session state,
+# .credentials.json is a token, and settings.json is deliberately hand-curated —
+# live carries per-project permission grants and UI keys the tracked copy omits,
+# so a copy in either direction loses something. Edit home/.claude/settings.json
+# and merge it into live by hand.
+#
+# This repo is public. skills/ and agents/ hold personal and work prompts
+# (language-master, ukon-dev-review), not machine config — uncomment only if
+# you've decided they can be published.
+CLAUDE_PATHS=(
+    CLAUDE.md
+    statusline.sh
+    hooks
+    # skills
+    # agents
+)
+
 echo "==> Syncing ~/.config directories..."
 for entry in "${CONFIG_DIRS[@]}"; do
     set -- $entry                 # word-split: $1=dir, remainder=extra excludes
@@ -100,6 +119,22 @@ for file in "${HOME_FILES[@]}"; do
         echo "    $file"
     else
         echo "    $file (not found, skipping)"
+    fi
+done
+
+echo "==> Syncing ~/.claude..."
+for entry in "${CLAUDE_PATHS[@]}"; do
+    src="$HOME/.claude/$entry"
+    dest="$DOTFILES/home/.claude/$entry"
+    if [[ -d "$src" ]]; then
+        copy_dir "$src" "$dest" .DS_Store
+        echo "    $entry/"
+    elif [[ -f "$src" ]]; then
+        mkdir -p "$(dirname "$dest")"
+        cp "$src" "$dest"
+        echo "    $entry"
+    else
+        echo "    $entry (not found, skipping)"
     fi
 done
 

@@ -9,7 +9,7 @@
 input=$(cat)
 
 # Dump full JSON for inspection
-# echo "$input" | jq '.' > /tmp/claude-statusline-debug.json
+echo "$input" | jq '.' >/tmp/claude-statusline-debug.json
 
 # ANSI colors — ANSI-C quoting ($'...') yields actual ESC bytes, not literal
 # backslash text, so no printf is needed to interpret them.
@@ -64,16 +64,20 @@ IFS=$'\x1f' read -r model used_disp used_int five_disp five_int five_resets \
 # Pick color for a percentage (0-100 int): high is BAD (usage meters). Sets REPLY.
 pct_color() {
   local p=$1
-  if   [ "$p" -ge 80 ]; then REPLY=$RED
-  elif [ "$p" -ge 50 ]; then REPLY=$YELLOW
+  if [ "$p" -ge 80 ]; then
+    REPLY=$RED
+  elif [ "$p" -ge 50 ]; then
+    REPLY=$YELLOW
   else REPLY=$GREEN; fi
 }
 
 # Inverted: high is GOOD (cache hit rate) — green high, red low. Sets REPLY.
 pct_color_inv() {
   local p=$1
-  if   [ "$p" -ge 70 ]; then REPLY=$GREEN
-  elif [ "$p" -ge 40 ]; then REPLY=$YELLOW
+  if [ "$p" -ge 70 ]; then
+    REPLY=$GREEN
+  elif [ "$p" -ge 40 ]; then
+    REPLY=$YELLOW
   else REPLY=$RED; fi
 }
 
@@ -81,12 +85,15 @@ pct_color_inv() {
 # Pure integer math with round-half-up to match the old awk %.0f / %.1f. Sets REPLY.
 humanize() {
   local n=$1
-  if [ -z "$n" ]; then REPLY=0; return; fi
+  if [ -z "$n" ]; then
+    REPLY=0
+    return
+  fi
   if [ "$n" -ge 1000000 ]; then
-    local t=$(( (n + 50000) / 100000 ))   # tenths of a million, rounded
-    REPLY="$(( t / 10 )).$(( t % 10 ))M"
+    local t=$(((n + 50000) / 100000)) # tenths of a million, rounded
+    REPLY="$((t / 10)).$((t % 10))M"
   elif [ "$n" -ge 1000 ]; then
-    REPLY="$(( (n + 500) / 1000 ))k"
+    REPLY="$(((n + 500) / 1000))k"
   else
     REPLY="$n"
   fi
@@ -95,10 +102,15 @@ humanize() {
 # Format seconds into a countdown: "2h30m", "3d4h", "45m", etc. Sets REPLY.
 fmt_countdown() {
   local secs=$1
-  if [ "$secs" -le 0 ]; then REPLY=now; return; fi
-  local days=$(( secs / 86400 )) hours=$(( (secs % 86400) / 3600 )) mins=$(( (secs % 3600) / 60 ))
-  if   [ "$days"  -gt 0 ]; then REPLY="${days}d${hours}h"
-  elif [ "$hours" -gt 0 ]; then REPLY="${hours}h${mins}m"
+  if [ "$secs" -le 0 ]; then
+    REPLY=now
+    return
+  fi
+  local days=$((secs / 86400)) hours=$(((secs % 86400) / 3600)) mins=$(((secs % 3600) / 60))
+  if [ "$days" -gt 0 ]; then
+    REPLY="${days}d${hours}h"
+  elif [ "$hours" -gt 0 ]; then
+    REPLY="${hours}h${mins}m"
   else REPLY="${mins}m"; fi
 }
 
@@ -116,7 +128,7 @@ parts+=("${BOLD_CYAN}${model}${RESET}")
 
 # Location: folder + git branch + worktree
 if [ -n "$cwd" ]; then
-  folder=${cwd##*/}                                   # basename, no fork
+  folder=${cwd##*/} # basename, no fork
   loc_str="${BLUE}${folder}${RESET}"
   # Try branch directly; empty result = not a repo / detached with no name.
   branch=$(git -C "$cwd" symbolic-ref --short HEAD 2>/dev/null || git -C "$cwd" rev-parse --short HEAD 2>/dev/null)
@@ -136,7 +148,7 @@ if [ -n "$five_disp" ]; then
   pct_color "$five_int"
   label="${DIM}5h:${RESET}${REPLY}${five_disp}%${RESET}"
   if [ -n "$five_resets" ]; then
-    fmt_countdown "$(( five_resets - now ))"
+    fmt_countdown "$((five_resets - now))"
     label="${label}${DIM}(${REPLY})${RESET}"
   fi
   parts+=("$label")
@@ -147,7 +159,7 @@ if [ -n "$week_disp" ]; then
   pct_color "$week_int"
   label="${DIM}7d:${RESET}${REPLY}${week_disp}%${RESET}"
   if [ -n "$week_resets" ]; then
-    fmt_countdown "$(( week_resets - now ))"
+    fmt_countdown "$((week_resets - now))"
     label="${label}${DIM}(${REPLY})${RESET}"
   fi
   parts+=("$label")
@@ -155,7 +167,8 @@ fi
 
 # Cumulative cost from API (cost_cents is integer cents, formatted in jq)
 if [ -n "$cost_cents" ]; then
-  d=$(( cost_cents / 100 )); c=$(( cost_cents % 100 ))
+  d=$((cost_cents / 100))
+  c=$((cost_cents % 100))
   [ "$c" -lt 10 ] && c="0$c"
   parts+=("${DIM}cost:${RESET}${BRIGHT_WHITE}\$${d}.${c}${RESET}")
 fi
@@ -164,7 +177,12 @@ fi
 # Line 2: cache | diff | r w fresh gen | agents | web | tools
 # Cumulative across the session, parsed from the transcript JSONL.
 # ===========================================================================
-cache_part=""; tok_part=""; agents_part=""; web_part=""; tools_part=""; diff_part=""
+cache_part=""
+tok_part=""
+agents_part=""
+web_part=""
+tools_part=""
+diff_part=""
 
 # Code churn comes from the cost block — no transcript needed.
 if [ -n "$lines_added" ] && [ -n "$lines_removed" ]; then
@@ -200,23 +218,27 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
 
   if [ -n "$t_tools" ]; then
     # Cache hit rate = cache_read / (cache_read + cache_creation + fresh input)
-    in_total=$(( t_cr + t_cw + t_in ))
+    in_total=$((t_cr + t_cw + t_in))
     if [ "$in_total" -gt 0 ] 2>/dev/null; then
-      hit=$(( (100 * t_cr + in_total / 2) / in_total ))   # round-half-up
+      hit=$(((100 * t_cr + in_total / 2) / in_total)) # round-half-up
       pct_color_inv "$hit"
       cache_part="${DIM}cache:${RESET}${REPLY}${hit}%${RESET}"
-      humanize "$t_cr"; hr=$REPLY
-      humanize "$t_cw"; hw=$REPLY
-      humanize "$t_in"; hf=$REPLY
-      humanize "$t_out"; hg=$REPLY
+      humanize "$t_cr"
+      hr=$REPLY
+      humanize "$t_cw"
+      hw=$REPLY
+      humanize "$t_in"
+      hf=$REPLY
+      humanize "$t_out"
+      hg=$REPLY
       tok_part="${DIM}r${RESET}${hr} ${DIM}w${RESET}${hw} ${DIM}fresh${RESET}${hf} ${DIM}gen${RESET}${hg}"
     fi
 
-    [ "$t_agents" -gt 0 ] 2>/dev/null && \
-      agents_part="${DIM}agents:${RESET}${MAGENTA}${t_agents}${RESET}"
+    [ "$t_agents" -gt 0 ] 2>/dev/null \
+      && agents_part="${DIM}agents:${RESET}${MAGENTA}${t_agents}${RESET}"
 
-    [ "$t_web" -gt 0 ] 2>/dev/null && \
-      web_part="${DIM}web:${RESET}${CYAN}${t_web}${RESET}"
+    [ "$t_web" -gt 0 ] 2>/dev/null \
+      && web_part="${DIM}web:${RESET}${CYAN}${t_web}${RESET}"
 
     if [ "$t_tools" -gt 0 ] 2>/dev/null; then
       tools_part="${DIM}tools:${RESET}${BRIGHT_WHITE}${t_tools}${RESET}"
