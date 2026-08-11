@@ -33,6 +33,7 @@ CONFIG_DIRS=(
     git
     ruff
     sesh
+    tuicr
     "tmux plugins"   # skip plugins — managed by tpm
     "helix runtime"  # skip runtime — symlink to built-from-source tree
     "yazi plugins"   # skip plugins — pinned in package.toml, `ya pkg install`
@@ -44,7 +45,13 @@ LIBRARY_DIRS=(
 )
 
 # ── ~/ dotfiles (copied to home/) ──
+# Paths may contain directories; dirname is created on the way in.
 HOME_FILES=(
+    # pueue's config dir on macOS is ~/Library/Application Support/pueue. State,
+    # logs and the socket are pointed at ~/.local/share/pueue by pueue.yml itself,
+    # but this stays a single named file rather than a dir entry so that anything
+    # pueue decides to write next to its config can't follow it into the repo.
+    "Library/Application Support/pueue/pueue.yml"
     .bash_aliases
     .gitconfig
     .gitignore

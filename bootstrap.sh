@@ -8,7 +8,7 @@
 #   ./bootstrap.sh -n all          # print what would run, change nothing
 #   ./bootstrap.sh update          # upgrade an already-provisioned machine
 #
-# Phases: brew files shell rust node helix plugins check
+# Phases: brew files shell rust node helix plugins pueue check
 # Every phase is idempotent and safe to re-run.
 
 set -euo pipefail
@@ -20,10 +20,11 @@ NODE_MAJOR=26
 # ── package lists (mirror README "Tools") ──
 FORMULAE=(
   lsd ripgrep bat fd sd zoxide fzf glow tlrc jq # core
-  gh lazygit direnv git-delta protobuf          # dev
+  gh lazygit direnv git-delta protobuf tuicr    # dev (tuicr = code review TUI)
+  hyperfine pueue                               # benchmarks, job queue (see the pueue phase)
   cmake ninja curl                              # build deps (helix, tmux-thumbs)
   postgresql@16 libpq@16 pgvector sqldiff pspg  # databases (pspg = PSQL_PAGER in .psqlrc)
-  sqitchers/sqitch/sqitch cpm                   # migrations
+  cpm                                           # migrations (sqitch installs separately)
   cloud-sql-proxy                               # GCP
   poppler ffmpeg sevenzip                       # yazi previewers
   pandoc typst                                  # docs
@@ -93,6 +94,17 @@ run_sh() {
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
+# Best-effort run, for the update phase only. `set -e` plus `run` means one
+# updater failing takes the whole phase with it — a yazi plugin with local
+# edits used to skip rustup, tpm and toolchain-check entirely.
+try() {
+  if ((DRY_RUN)); then
+    printf '    [dry-run] %s\n' "$*"
+  elif ! "$@"; then
+    warn "failed, continuing: $*"
+  fi
+}
+
 # ── phases ──
 
 phase_brew() {
@@ -112,6 +124,26 @@ phase_brew() {
 
   info "formulae (${#FORMULAE[@]})"
   run brew install "${FORMULAE[@]}"
+
+  # Every sqitch engine is an opt-in build option, and brew applies options to
+  # every formula on the command line, so sqitch can't ride along in FORMULAE.
+  # The tap ships no bottle either: each install compiles against whatever perl
+  # is current and hardcodes that Cellar path in the wrapper's shebang, so a
+  # perl major bump gives "bad interpreter" until it's rebuilt.
+  local sqitch=(sqitchers/sqitch/sqitch --with-postgres-support --with-sqlite-support)
+  if ! brew list --versions sqitch >/dev/null 2>&1; then
+    info "sqitch"
+    run brew install "${sqitch[@]}"
+  else
+    local sqitch_perl
+    sqitch_perl="$(sed -n '1s|^#!\([^ ]*\).*|\1|p' "$(brew --prefix sqitch)/libexec/sqitch" 2>/dev/null)"
+    if [[ -n "$sqitch_perl" && ! -x "$sqitch_perl" ]]; then
+      warn "sqitch was built against $sqitch_perl, which is gone; rebuilding"
+      run brew reinstall "${sqitch[@]}"
+    else
+      info "sqitch (present)"
+    fi
+  fi
 
   info "casks (${#CASKS[@]})"
   run brew install --cask "${CASKS[@]}"
@@ -310,6 +342,47 @@ phase_plugins() {
   fi
 }
 
+phase_pueue() {
+  say "pueue: daemon + groups"
+  have pueue || {
+    warn "pueue not installed — run the brew phase first"
+    return 0
+  }
+
+  # launchd rather than a shell one-liner: pueued has to outlive the terminal
+  # that queued the job. It's also why the config sits at pueue's own default
+  # path — launchd never reads .zshenv, so PUEUE_CONFIG_PATH wouldn't reach it.
+  if brew services list 2>/dev/null | grep -qE '^pueue[[:space:]]+started'; then
+    info "pueued (running)"
+  else
+    run brew services start pueue
+  fi
+
+  if ((DRY_RUN)); then
+    printf '    [dry-run] pueue group add build --parallel 1\n'
+    return 0
+  fi
+
+  # The socket isn't up the instant launchd returns.
+  for _ in 1 2 3 4 5; do
+    pueue status >/dev/null 2>&1 && break
+    sleep 1
+  done
+  pueue status >/dev/null 2>&1 || {
+    warn "pueued not answering — check: brew services list; tail /opt/homebrew/var/log/pueued.log"
+    return 0
+  }
+
+  # Groups live in the state file, not the config, so they can't be shipped in
+  # pueue.yml. `add` on an existing group is an error, not a no-op.
+  local out
+  out="$(pueue group add build --parallel 1 2>&1)" || true
+  case "$out" in
+    *"already exists"*) info "group build (present)" ;;
+    *) info "${out:-group build added}" ;;
+  esac
+}
+
 phase_check() {
   say "Verifying"
   if have toolchain-check; then
@@ -333,18 +406,26 @@ EOF
 phase_update() {
   say "Updating an already-provisioned machine"
   if have brew; then
-    run brew update
-    run brew upgrade
-    run brew upgrade --cask --greedy
-    run brew cleanup
+    try brew update
+    try brew upgrade
+    try brew upgrade --cask --greedy
+    try brew cleanup
   fi
-  have gh && run gh extension upgrade --all
-  have ya && run ya pkg upgrade
+  have gh && try gh extension upgrade --all
+  # Aborts if a plugin has local edits. `ya pkg upgrade --discard` is the fix,
+  # but only once you've checked the diff — don't put --discard in here.
+  have ya && try ya pkg upgrade
+  # The daemon keeps running the old binary after an upgrade, and pueue_lib's
+  # protocol version is part of the handshake — the client will tell you to
+  # restart it. Do it here instead.
+  if have pueue && brew services list 2>/dev/null | grep -qE '^pueue[[:space:]]+started'; then
+    try brew services restart pueue
+  fi
   local tpm_update="$HOME/.config/tmux/plugins/tpm/bin/update_plugins"
-  [[ -x "$tpm_update" ]] && run "$tpm_update" all
-  have rustup && run rustup update
+  [[ -x "$tpm_update" ]] && try "$tpm_update" all
+  have rustup && try rustup update
   # npm globals get no `brew upgrade`; this is the trade-off for nvm's node.
-  have toolchain-check && run toolchain-check -u
+  have toolchain-check && try toolchain-check -u
 }
 
 # ── arg parsing ──
@@ -356,15 +437,15 @@ for arg in "$@"; do
       sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
-    all) PHASES+=(brew files shell rust node helix plugins check) ;;
-    brew | files | shell | rust | node | helix | plugins | check | update) PHASES+=("$arg") ;;
+    all) PHASES+=(brew files shell rust node helix plugins pueue check) ;;
+    brew | files | shell | rust | node | helix | plugins | pueue | check | update) PHASES+=("$arg") ;;
     *)
       echo "unknown argument: $arg (try --help)" >&2
       exit 2
       ;;
   esac
 done
-((${#PHASES[@]})) || PHASES=(brew files shell rust node helix plugins check)
+((${#PHASES[@]})) || PHASES=(brew files shell rust node helix plugins pueue check)
 
 ((DRY_RUN)) && say "DRY RUN — nothing will be changed"
 

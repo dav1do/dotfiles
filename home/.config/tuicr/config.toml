@@ -1,0 +1,12 @@
+# tuicr renders its own diff — it is not a pager, so nothing here goes through
+# delta and .gitconfig's [delta] block does not apply. `diff_view` is the
+# equivalent knob; `:diff` toggles it mid-review.
+#
+# Full option list: https://github.com/agavra/tuicr/blob/main/docs/CONFIG.md
+
+theme = "catppuccin-mocha" # matches helix; `github-dark` and `gruvbox-dark` are also bundled
+diff_view = "side-by-side" # delta runs side-by-side too; `:diff` for unified
+ignore_whitespace = true   # local diffs only, PR diffs come pre-rendered from the API
+scroll_offset = 4          # vim's scrolloff
+comment_vim = true         # modal editing in the comment box; `:vim` toggles
+username = "dav1do"        # stamped on local comments, and colors them as mine

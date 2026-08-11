@@ -11,7 +11,13 @@ CLI:
   - `git-delta` is wired in as git's pager and `interactive.diffFilter` (see `.gitconfig`) — without it, `git diff` fails.
 - build-from-source deps (helix, tmux-thumbs): `brew install cmake ninja curl`
 - databases (match `.psqlrc` / `.sqliterc`): `brew install postgresql@16 libpq@16 pgvector sqldiff pspg`
-  - migrations: `brew install sqitchers/sqitch/sqitch cpm` (sqitch is a Perl app; `cpm` installs its CPAN deps)
+  - migrations: `brew install sqitchers/sqitch/sqitch --with-postgres-support --with-sqlite-support`
+    plus `brew install cpm` (sqitch is a Perl app; `cpm` installs its CPAN deps). Every engine is an
+    opt-in build option — without `--with-postgres-support` you get a sqitch that can't talk to
+    Postgres. The tap has no bottle, so each install compiles against the current perl and bakes
+    that Cellar path into the wrapper's shebang: after a perl major bump sqitch dies with `bad
+    interpreter: No such file or directory` and the same install command (as `reinstall`) is the fix.
+    `bootstrap.sh` detects the dead interpreter and rebuilds.
   - GCP: `brew install cloud-sql-proxy`
   - `pspg` is psql's pager, set as `PSQL_PAGER` in `.psqlrc` — frozen header row while you scroll
     right, cursor navigation, `/` search, `a`/`d` sort, F9 for the menu and theme picker. `PAGER`
@@ -62,6 +68,54 @@ CLI:
   - `bottom` installs as `btm`, not `bottom` — cross-platform process/CPU/mem/net graphs
   - `macmon` is Apple-silicon only: reads SMC/IOReport for per-cluster CPU + GPU + ANE power draw
     and temps, which `btm` and Activity Monitor don't show
+- code review: `brew install tuicr` — a diff/review TUI with vim keys (`cr`, `crw` in `.bash_aliases`)
+  - **not a pager.** It renders the diff itself, so `[delta]` in `.gitconfig` and `$PAGER` have no
+    effect inside it. The equivalent knob is `diff_view` in `~/.config/tuicr/config.toml`, set to
+    `side-by-side` to match delta; `:diff` toggles unified mid-review, `:set wrap!` wraps.
+  - `tuicr -w` reviews the working tree, `-r main..HEAD` a range, `tuicr pr N` a GitHub PR over
+    `gh`'s auth, `-A` every tracked file. No argument opens a commit selector.
+  - `c`/`C`/`v` comment on a line / file / range, `r`/`R` mark a file / hunk reviewed, `m` jumps
+    comment to comment, `e` opens the file in `$EDITOR`, `?` for the full list.
+  - moving between files: `;h` focuses the tree, then plain `j`/`k` walk it and `Enter` jumps the
+    diff there **and hands focus back to the diff** — so it's `;h j j Enter`, not a mode you have to
+    escape. `{`/`}` (prev/next file) and `[`/`]` (prev/next hunk) do the same thing without leaving
+    the diff. There is no keybinding config: `leader` and `comment_vim` are the only key-related
+    options, so `{`/`}` can't be remapped — use the tree if the braces don't stick.
+  - within a diff: `g`/`G` first/last file, `/` search, `NG` jump to source line N. Everything takes
+    a vim count prefix (`5j`, `3}`).
+  - the tree is a real panel, not decoration: `;e` toggles it, `/` substring-searches paths, `i`/`e`
+    include/exclude by regex (`I`/`E` clear), `o`/`O` expand/collapse all. Filters hide files from
+    the diff and from `{`/`}` too, not just from the tree. `;l` returns to the diff, `Tab` cycles
+    panels. `;` is the leader, settable via `leader` in `config.toml`.
+  - `prefix R` opens it in a tmux window (`r` is still the config reload; `R` used to duplicate it)
+  - `y` copies the review as numbered `file:line` markdown to paste at an agent; `:submit` pushes a
+    real inline review to GitHub. Reviews persist per repo — `tuicr review list`.
+  - themes are its own, not helix's: `catppuccin-mocha` here, `~/.config/tuicr/themes/*.toml` for
+    local ones. `tuicr update` self-updates, but brew owns this install, so let brew do it.
+- job queue: `brew install pueue` — `pueued` runs under launchd via `brew services start pueue`
+  (the `pueue` phase in `bootstrap.sh` starts it and creates the `build` group)
+  - config is `~/Library/Application Support/pueue/pueue.yml`, **not** `~/.config/pueue` — pueue
+    uses `dirs` 6, whose `config_dir` on macOS is Application Support. Left at that default on
+    purpose: `PUEUE_CONFIG_PATH` in `.zshenv` would only reach the client, never the launchd
+    daemon, and the two would then disagree about the socket and state paths.
+  - state, logs, socket and pid default to `data_local_dir`, which on macOS is that *same*
+    directory — `shared.pueue_directory` moves them to `~/.local/share/pueue` so a task log can't
+    end up next to a tracked config. `sync.sh` names the single file in `HOME_FILES` regardless.
+  - `daemon.shell_command` is `zsh -c` rather than the default `sh -c`, so a queued command parses
+    the way it does when typed. Aliases are absent either way — the task shell is non-interactive.
+  - groups are state, not config, so they can't ship in the yml: `pueue group add build --parallel 1`.
+    `pub <cmd>` queues into it one at a time.
+  - `pueue add` snapshots the calling shell's environment into the task, which is what makes
+    direnv-provided vars (`DATABASE_URL` for the sqlx macros) work — tasks themselves run under a
+    bare `sh -c` that never loads direnv.
+  - the config's `callback` fires an osascript notification per finished task. Handlebars vars:
+    `id command path group result exit_code start end output output_path queued_count stashed_count`.
+  - after `brew upgrade pueue` the daemon is still the old binary and `pueue_lib`'s protocol version
+    is part of the handshake — restart it. `./bootstrap.sh update` does that when it's running.
+- benchmarking: `brew install hyperfine` (`bench` = `hyperfine --warmup 3`)
+  - no config file, all flags. `--warmup N` so a cold cache doesn't skew run one, `-L param a,b,c`
+    for sweeps over a `{param}` placeholder, `--prepare` to reset state between runs,
+    `--export-markdown` for a PR-ready table.
 - nvm: https://github.com/nvm-sh/nvm — the only node source; `.zshenv` puts the default version on `PATH`, `.zshrc` keeps lazy stubs for switching. See the node section below
 - claude code: https://docs.claude.com/en/docs/claude-code
 
@@ -250,7 +304,7 @@ Rust toolchain (builds helix itself, and provides `rust-analyzer`):
 ```sh
 git clone https://github.com/<you>/dotfiles ~/mystuff/dotfiles && cd ~/mystuff/dotfiles
 ./bootstrap.sh -n all      # print every command, change nothing
-./bootstrap.sh             # brew → files → shell → rust → node → helix → plugins → check
+./bootstrap.sh             # brew → files → shell → rust → node → helix → plugins → pueue → check
 ./bootstrap.sh files       # or one phase at a time
 ./bootstrap.sh update      # brew upgrade + gh/yazi/tpm/rustup + toolchain-check -u
 ```

@@ -1,0 +1,33 @@
+# pueue's own default config path on macOS — dirs 6 maps config_dir to
+# ~/Library/Application Support, not ~/.config. Deliberately not moved to
+# ~/.config via PUEUE_CONFIG_PATH: pueued runs under launchd (brew services),
+# which never reads .zshenv, so the daemon and the client would resolve
+# different configs — and with them different socket and state paths.
+#
+# Only the keys that differ from pueue's defaults are here; every omitted field
+# is filled in by serde. Groups are not config, they live in the state file:
+# `pueue group add`.
+
+shared:
+  # Default is data_local_dir, which on macOS is this same directory — state,
+  # logs, socket and pid landing next to the config. Kept apart so sync.sh
+  # can't drag a task log into the repo.
+  pueue_directory: ~/.local/share/pueue
+
+client:
+  # Ask before the destructive ones (`reset`, `clean`, `kill`).
+  show_confirmation_questions: true
+
+daemon:
+  # Stop the group on the first failure instead of grinding through a queue of
+  # builds that were all going to fail the same way.
+  pause_group_on_failure: true
+
+  # Default is `sh -c`. zsh so queued commands behave the way they do when typed
+  # — no aliases either way (non-interactive), but the syntax matches.
+  shell_command: ["zsh", "-c", "{{ pueue_command_string }}"]
+
+  # Handlebars over: id, command, path, group, result, exit_code, start, end,
+  # output, output_path, queued_count, stashed_count.
+  # Single-quoted for the shell, double quotes inside for AppleScript.
+  callback: "osascript -e 'display notification \"{{ result }} in {{ group }} ({{ queued_count }} queued)\" with title \"pueue #{{ id }}\"'"

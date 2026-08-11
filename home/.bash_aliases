@@ -14,6 +14,21 @@ alias l='ls -CF'
 alias lg='lazygit'
 alias ws='windsurf'
 
+# code review TUI. `crw` reviews the working tree and skips the commit selector.
+alias cr='tuicr'
+alias crw='tuicr -w'
+
+# job queue. `pueue add` copies the current environment into the task, so
+# direnv-provided vars (DATABASE_URL and friends) carry into queued builds.
+alias pu='pueue'
+alias pud='pueued -d'
+alias pus='pueue status'
+alias puf='pueue follow'
+alias pub='pueue add -g build --' # serial group, one build at a time
+
+# 3 warmup runs before timing — cold caches make the first run a lie.
+alias bench='hyperfine --warmup 3'
+
 alias locate='mdfind' # spotlight on mac
 
 alias lhr='lefthook run'
