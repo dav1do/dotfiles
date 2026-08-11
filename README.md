@@ -81,7 +81,7 @@ tmux:
 - plugin manager (tpm): https://github.com/tmux-plugins/tpm
 - catppuccin theme: https://github.com/catppuccin/tmux
 - plugins install with `prefix+I` after tpm is set up
-- tmux-thumbs (hint-copy, `prefix+f`): Rust plugin — needs `cargo` (from the Rust toolchain below) to build on first install
+- tmux-thumbs (hint-copy, `prefix+Space`; `prefix+O` opens what it copied): Rust plugin — needs `cargo` (from the Rust toolchain below) to build on first install
 
 helix:
 
