@@ -1,18 +1,12 @@
 #!/usr/bin/env bash
-# Claude Code status line.
-# Runs locally in the client on each render — consumes ZERO model tokens; it only
-# reads the transcript file and prints. Process spawns are kept minimal: two jq
-# calls (stdin JSON + transcript JSONL) and at most one git call. All numeric
-# formatting/thresholds are done in jq or pure-bash integer math — no awk, no
-# date(1), no basename(1). Colors are real ESC bytes (see $'...' below), so fields
-# are built by plain string interpolation and emitted with a single printf.
+# Claude Code status line. Runs on every render, so it stays to two jq calls and
+# at most one git call — formatting is jq or bash integer math, no awk or date(1).
 input=$(cat)
 
 # Dump full JSON for inspection
 echo "$input" | jq '.' >/tmp/claude-statusline-debug.json
 
-# ANSI colors — ANSI-C quoting ($'...') yields actual ESC bytes, not literal
-# backslash text, so no printf is needed to interpret them.
+# $'...' yields actual ESC bytes, so no printf is needed to interpret them.
 RED=$'\033[0;31m'
 YELLOW=$'\033[0;33m'
 GREEN=$'\033[0;32m'
@@ -26,13 +20,11 @@ CYAN=$'\033[0;36m'
 BLUE=$'\033[0;34m'
 BOLD_YELLOW=$'\033[1;33m'
 
-# --- jq call #1: pull + preformat every line-1 field from stdin JSON as one row ---
-# jq does the float formatting bash can't (fixed-decimal %, cost cents), and emits
-# a floor()'d int alongside each percentage so bash can pick a threshold color with
-# plain integer compares (faithful to the old raw-value awk compares, since the
-# thresholds are integers). Absent fields become "" so the [ -n ] guards still work.
-# Delimit with \x1f (unit separator), NOT tab: bash `read` collapses consecutive
-# IFS-whitespace (tab included), which would drop empty fields and shift the rest.
+# jq call #1: every line-1 field from stdin JSON as one row. jq does the float
+# formatting and emits a floor()'d int per percentage for bash's integer compares;
+# absent fields become "" so the [ -n ] guards still work. Delimited with \x1f,
+# NOT tab — bash `read` collapses consecutive IFS-whitespace and would drop empty
+# fields and shift the rest.
 QUERY='
   def f1(v): if v==null then "" else (v*10|round) as $t | ($t/10|floor) as $w | "\($w).\($t-$w*10)" end;
   def f0(v): if v==null then "" else (v|round|tostring) end;
@@ -81,8 +73,7 @@ pct_color_inv() {
   else REPLY=$RED; fi
 }
 
-# Humanize an integer token count: 1234 -> 1k, 31553 -> 32k, 3428579 -> 3.4M.
-# Pure integer math with round-half-up to match the old awk %.0f / %.1f. Sets REPLY.
+# 1234 -> 1k, 31553 -> 32k, 3428579 -> 3.4M. Integer math, round-half-up. Sets REPLY.
 humanize() {
   local n=$1
   if [ -z "$n" ]; then
@@ -114,13 +105,10 @@ fmt_countdown() {
   else REPLY="${mins}m"; fi
 }
 
-# EPOCHSECONDS is a bash builtin (>= 4.2) — no date(1) fork. Undefined on stock
-# macOS /bin/bash (3.2); the env-bash shebang resolves to a modern bash here.
+# Builtin since bash 4.2, so no date(1) fork — undefined on stock macOS bash 3.2.
 now=$EPOCHSECONDS
 
-# ===========================================================================
-# Line 1: model | location | ctx | 5h | 7d | cost
-# ===========================================================================
+# ── Line 1: model | location | ctx | 5h | 7d | cost
 parts=()
 
 # Model (bright cyan bold)
@@ -173,10 +161,8 @@ if [ -n "$cost_cents" ]; then
   parts+=("${DIM}cost:${RESET}${BRIGHT_WHITE}\$${d}.${c}${RESET}")
 fi
 
-# ===========================================================================
-# Line 2: cache | diff | r w fresh gen | agents | web | tools
+# ── Line 2: cache | diff | r w fresh gen | agents | web | tools
 # Cumulative across the session, parsed from the transcript JSONL.
-# ===========================================================================
 cache_part=""
 tok_part=""
 agents_part=""
@@ -191,8 +177,8 @@ if [ -n "$lines_added" ] && [ -n "$lines_removed" ]; then
   fi
 fi
 
-# --- jq call #2: one pass over the transcript -> TSV of session stats ---
-# Falls back silently (no line 2 stats) on any error or missing file.
+# jq call #2: one pass over the transcript. Silently yields no line-2 stats on
+# any error or missing file.
 PARSE='{
   toolnames: [ .[] | .message.content? // empty
                | if type=="array" then .[] else empty end

@@ -1,69 +1,27 @@
-# A TOML linter such as https://github.com/tombi-toml/tombi can use this schema to validate your config.
 #:schema https://yazi-rs.github.io/schemas/keymap.json
 #
-# ── Design ────────────────────────────────────────────────────────────────
-# Goal: yazi should read like helix/vim, and reach the shell like a shell.
+# Everything here is `prepend_keymap`, so it shadows the stock binding with the
+# same first-two keys and leaves the rest of yazi's defaults intact.
+# `run = "noop"` is the documented unbind idiom — yazi filters noop chords out
+# after merging.
 #
-# Everything here is `prepend_keymap`, so it *shadows* the stock binding with
-# the same first-two keys and leaves the rest of yazi's defaults intact.
-# `run = "noop"` deletes a default binding outright (that's the documented
-# unbind idiom — yazi filters noop chords out after merging).
+# <C-h/j/k/l> are deliberately unbound: tmux eats them for pane navigation.
 #
-#   ?            help  (stock yazi uses `~`, which is a ranger inheritance;
-#                       `~` and <F1> still work)
-#   q            quit, leaving the shell in the directory you started from
-#                (deliberate: yazi is a navigator here, not a cd tool)
-#   Q            quit AND cd the shell to where you ended up (--cwd-file)
-#
-#   REGISTERS (helix/vim semantics — NOT stock yazi)
-#   y            copy      (yank)
-#   d            CUT       (stock yazi: d = trash. `x` still cuts too.)
-#   p / P        paste / paste --force
-#   Y / X        cancel the yank
-#   D / <Del>    trash
-#   <S-Del>      delete permanently
-#
-#   ; …          SHELL MENU — real commands: mv, cp, mkdir, chmod, rm, tar…
-#                `;;` raw prompt, `;:` raw blocking prompt. `:` alone still
-#                opens a blocking shell prompt in one key.
-#   e            edit selection in $EDITOR (hx)
-#
-#   <Space> …    LEADER, helix-shaped. Which-key lists it, so there is nothing
-#                to memorize:
-#                  <Space>f   fuzzy file picker      (helix: file picker)
-#                  <Space>/   grep contents          (helix: global search)
-#                  <Space>d   fd by filename
-#                  <Space>z   zoxide directory jump
-#                  <Space>y   copy path to clipboard (helix: yank to clipboard)
-#                Plus one-key paths for the two used constantly:
-#                  <C-p>  file picker      <C-g>  grep
-#
-#   ⚠ <Space> NO LONGER TOGGLES SELECTION — it's the leader now.
-#     <Tab> toggles the hovered file instead, and `i` shows file info (the
-#     job <Tab> used to do). v/V/%/<C-a> are untouched.
-#
-#   g …          goto (vim). gt/gT switch tabs. g<Space> is a path prompt.
-#   %            select everything (helix)
-#   <C-e>/<C-y>  scroll the preview (matches the helix bindings)
-#
-# NOT bound on purpose: <C-h/j/k/l> — tmux eats those for pane navigation.
-#
-# Cursor offsets in the `;` menu are hand-counted character positions into
-# the prefilled command; recount if you edit the template text.
+# --cursor offsets are hand-counted positions into the prefilled command.
+# Recount them if you edit the template text.
 
 # ── mgr ───────────────────────────────────────────────────────────────────
 [mgr]
 
 prepend_keymap = [
-	# Help ─ `?` instead of `~`
 	{ on = "?", run = "help", desc = "Open help" },
 
-	# Quit ─ inverted from stock yazi on purpose: `q` is the reflex key and
-	# should leave you where you were. `Q` is the one that cd's.
+	# Inverted from stock: `q` is the reflex key and should leave you where you
+	# were. `Q` is the one that cd's.
 	{ on = "q", run = "quit --no-cwd-file", desc = "Quit, stay in the original directory" },
 	{ on = "Q", run = "quit",               desc = "Quit, and cd the shell here" },
 
-	# ── Registers: y copies, d cuts, p pastes ────────────────────────────
+	# ── Registers: y copies, d cuts, p pastes (helix/vim, not stock yazi) ──
 	{ on = "y", run = "yank",          desc = "Copy (yank) selection" },
 	{ on = "d", run = "yank --cut",    desc = "Cut selection (paste with p)" },
 	{ on = "p", run = "paste",         desc = "Paste yanked files here" },
@@ -80,7 +38,6 @@ prepend_keymap = [
 	{ on = "e",       run = "shell '$EDITOR \"$@\"' --block", desc = "Edit selection in $EDITOR" },
 
 	# ── Shell menu (`;`) — the actual unix commands ───────────────────────
-	# Unbind stock single-key `;` so it can act as a which-key prefix.
 	{ on = ";", run = "noop" },
 
 	{ on = [ ";", ";" ], run = "shell --interactive",         desc = "Shell command (background)" },
@@ -100,8 +57,7 @@ prepend_keymap = [
 	{ on = [ ";", "g" ], run = "shell 'lazygit' --block", desc = "lazygit here" },
 
 	# ── Search / jump (<Space> leader, helix-shaped) ──────────────────────
-	# Unbind stock single-key <Space> (toggle selection) so it can act as a
-	# which-key prefix. Selection moves to <Tab>, file info moves to `i`.
+	# <Space> is the leader now, so selection moves to <Tab> and file info to `i`.
 	{ on = "<Space>", run = "noop" },
 
 	{ on = [ "<Space>", "f" ], run = "plugin fzf",          desc = "Jump to any file below here (fzf)" },
@@ -114,12 +70,10 @@ prepend_keymap = [
 	{ on = [ "<Space>", "y" ], run = "copy path",           desc = "Copy full path to clipboard" },
 	{ on = [ "<Space>", "?" ], run = "help",                desc = "Open help" },
 
-	# One-key paths for the two used constantly.
 	{ on = "<C-p>", run = "plugin fzf",      desc = "Jump to any file below here (fzf)" },
 	{ on = "<C-g>", run = "search --via=rg", desc = "Grep file contents below here (rg)" },
 
 	# ── Selection ────────────────────────────────────────────────────────
-	# <Tab> inherits what <Space> used to do; `i` inherits <Tab>'s old job.
 	{ on = "<Tab>", run = [ "toggle", "arrow 1" ], desc = "Toggle selection of the hovered file" },
 	{ on = "i",     run = "spot",                  desc = "Show file info (spot)" },
 	{ on = "%",     run = "toggle_all --state=on",  desc = "Select all files" },
@@ -142,7 +96,6 @@ prepend_keymap = [
 ]
 
 # ── tasks / spot / pick / confirm / help ──────────────────────────────────
-# `q` closes popups, `?` is help everywhere.
 [tasks]
 
 prepend_keymap = [

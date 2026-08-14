@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
 # Open whatever `prefix Space` (tmux-thumbs) last copied. Bound to `prefix O`.
 #
-# Why this isn't just `open "$(pbpaste)"`:
-#   - EDITOR is hx, a TUI. LaunchServices can't launch it, so `open` on a text
-#     file either hands it to some unrelated GUI app or fails with "no
-#     application knows how to open" — files want a tmux window, not Finder.
-#   - thumbs' `path` pattern copies relative paths (see its state.rs), and a
-#     run-shell job starts in the server's cwd, so they need resolving against
-#     the pane first.
-#   - thumbs' `url` pattern also matches scp-style git remotes, which `open`
-#     can't take. Those are worth rewriting to https.
-# Anything left unopenable says so in the status line rather than exiting 1
-# into the void.
+# Not just `open "$(pbpaste)"`: EDITOR is hx, a TUI that LaunchServices can't
+# launch, so files need a tmux window rather than Finder; thumbs copies relative
+# paths and a run-shell job starts in the server's cwd; and thumbs' url pattern
+# matches scp-style git remotes, which `open` can't take.
 #
 # Usage: open-clipboard.sh <pane-current-path>
 set -uo pipefail

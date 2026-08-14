@@ -1,26 +1,12 @@
 #!/usr/bin/env bash
-# Check that every external binary helix invokes actually RUNS.
+# Check that every external binary helix invokes actually RUNS. `hx --health`
+# only stats the file on PATH, so it prints ✓ for a language server with a broken
+# interpreter or one missing from the active node version — and format-on-save
+# then silently does nothing while health output looks clean.
 #
-# Why this exists: `hx --health` only stats the file on PATH. It happily prints
-# ✓ for a language server whose interpreter is broken or whose package isn't
-# installed for the active node version, so a whole class of failure is invisible
-# from inside helix — format-on-save silently does nothing, completions never
-# arrive, and health output looks clean.
-#
-# Two failure modes this catches:
-#   1. Interpreter broken. Homebrew's node links ~22 homebrew dylibs; when one
-#      majors without node being rebottled, node dies at load and every
-#      node-based formula dies with it. Official Node.org builds (what nvm
-#      installs) link only system frameworks, which is why the tooling moved off
-#      brew — see the Node section of the dotfiles README.
-#   2. Package missing for the active node version. npm globals are per-version
-#      and `nvm use` replaces its PATH entry rather than stacking, so switching
-#      node makes tools vanish unless ~/.nvm/default-packages installed them
-#      there too.
-#
-# Exit codes are NOT a usable health signal here: an LSP server started with
-# `--stdio` and no client on stdin exits 1 after a clean EOF, while a dyld
-# failure exits 134. So classification is by output signature — see BROKEN_RE.
+# Exit codes are not a usable signal: an LSP server started with `--stdio` and no
+# client exits 1 after a clean EOF, a dyld failure exits 134. Classification is by
+# output signature — see BROKEN_RE.
 #
 # Usage: toolchain-check [-v] [-u]
 #   -v  also print the resolved path for each tool
