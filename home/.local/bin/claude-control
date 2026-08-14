@@ -11,9 +11,7 @@
 
 set -euo pipefail
 
-# ---------------------------------------------------------------------------
-# Process tree (single snapshot, walked in-memory — no per-pane forks)
-# ---------------------------------------------------------------------------
+# ── Process tree (single snapshot, walked in-memory — no per-pane forks)
 
 declare -A PROC_ARGS      # pid -> command line
 declare -A PROC_CHILDREN  # ppid -> "child child ..."
@@ -41,9 +39,7 @@ has_claude_descendant() {
   return 1
 }
 
-# ---------------------------------------------------------------------------
-# Pane discovery
-# ---------------------------------------------------------------------------
+# ── Pane discovery
 
 # Output: pane_id location dir  (pane_id hidden in fzf via --with-nth=2..)
 list_claude_panes() {
@@ -64,9 +60,7 @@ cmd_summary() {
   echo "[C: $count]"
 }
 
-# ---------------------------------------------------------------------------
-# Direct send (scriptable)
-# ---------------------------------------------------------------------------
+# ── Direct send (scriptable)
 
 cmd_send() {
   local pane_id="${1:?Usage: claude-control send <pane_id> <prompt>}"
@@ -75,9 +69,7 @@ cmd_send() {
   tmux send-keys -t "$pane_id" "$prompt" Enter
 }
 
-# ---------------------------------------------------------------------------
-# Internal commands (called by fzf execute bindings)
-# ---------------------------------------------------------------------------
+# ── Internal commands (called by fzf execute bindings)
 
 cmd_dispatch() {
   local pane_id="$1"
@@ -155,9 +147,7 @@ cmd_spawn() {
   tmux split-window -h -c "$dir" "claude --name '$label'"
 }
 
-# ---------------------------------------------------------------------------
-# fzf picker
-# ---------------------------------------------------------------------------
+# ── fzf picker
 
 cmd_picker() {
   local panes
@@ -190,9 +180,7 @@ cmd_picker() {
       --bind 'enter:become(tmux switch-client -t {1})'
 }
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
+# ── Entry point
 
 case "${1:-}" in
   summary)    cmd_summary ;;

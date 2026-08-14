@@ -27,7 +27,6 @@ copy_dir() {
 
 # ── ~/.config directories (dir-name [extra excludes...]) ──
 CONFIG_DIRS=(
-    alacritty
     gh-dash
     ghostty
     git
@@ -47,11 +46,6 @@ LIBRARY_DIRS=(
 # ── ~/ dotfiles (copied to home/) ──
 # Paths may contain directories; dirname is created on the way in.
 HOME_FILES=(
-    # pueue's config dir on macOS is ~/Library/Application Support/pueue. State,
-    # logs and the socket are pointed at ~/.local/share/pueue by pueue.yml itself,
-    # but this stays a single named file rather than a dir entry so that anything
-    # pueue decides to write next to its config can't follow it into the repo.
-    "Library/Application Support/pueue/pueue.yml"
     .bash_aliases
     .gitconfig
     .gitignore
@@ -65,16 +59,10 @@ HOME_FILES=(
 )
 
 # ── ~/.claude entries (copied to home/.claude) ──
-# Named individually rather than syncing the directory, because most of what
-# lives there must never land here: projects/ and todos/ are session state,
-# .credentials.json is a token, and settings.json is deliberately hand-curated —
-# live carries per-project permission grants and UI keys the tracked copy omits,
-# so a copy in either direction loses something. Edit home/.claude/settings.json
-# and merge it into live by hand.
-#
-# This repo is public. skills/ and agents/ hold personal and work prompts
-# (language-master, ukon-dev-review), not machine config — uncomment only if
-# you've decided they can be published.
+# Named individually, not synced wholesale: projects/ and todos/ are session
+# state, .credentials.json is a token, and settings.json loses something in
+# either direction (merge that one by hand). This repo is public, so skills/ and
+# agents/ stay out unless you've decided those prompts can be published.
 CLAUDE_PATHS=(
     CLAUDE.md
     statusline.sh

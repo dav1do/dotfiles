@@ -1,64 +1,24 @@
 #!/usr/bin/env bash
-# Centered reading view of a file — for when helix is parked in a narrow pane on
-# the side of a wide monitor and the text sits off to one edge. Markdown gets
-# rendered (glow); anything else gets highlighted source (bat). Read-only by
-# design: nothing here can write to the file, so it can't fight with the helix
-# instance that's still holding the buffer.
+# Centered reading view of a file. Markdown is rendered (glow), anything else is
+# highlighted source (bat). Read-only, so it can't fight the helix instance
+# still holding the buffer.
 #
-#   tmux-read --popup FILE    quick glance: a bordered overlay the width of the
-#                             reading column, gone when you quit (helix: space z)
-#   tmux-read --float FILE     zen: covers the whole window, text centered in it,
-#                             and it persists — switch away and come back
-#                             (helix: space Z)
+#   tmux-read --popup FILE    bordered overlay, gone when you quit
+#   tmux-read --float FILE    covers the window and persists (--window is an alias)
 #
-# --window is kept as an alias for --float.
-#
-# The two used to differ by mechanism (popup vs a window full of spacer panes)
-# and now differ by intent: z is ephemeral and small, Z takes over the window.
-#
-# Centering is glamour's `document.margin`, which is symmetric — it indents by
-# margin AND shrinks the wrap to width-2*margin. Measured at `glow -w 100`:
-# margin 20 puts text in columns 20..80, margin 40 in 40..60. So the zen float
-# can be the full window (hiding everything behind it) while the text still sits
-# in a column down the middle. The old version faked that with two throwaway
-# spacer panes either side, which prefix E would flatten into thirds.
-#
-# The float is tmux 3.7's floating pane (`new-pane`, bound to prefix * by
-# default). It's a real pane, so it survives switching windows, but it sits
-# outside the layout tree — select-layout can't redistribute it and tmux refuses
-# to split or swap it.
-#
-# The pager runs in the foreground and owns the terminal for its whole life.
-# Nothing here polls it, backgrounds it, or writes escape sequences around it —
-# an earlier version did all three to re-render on a timer and the result was
-# visible tearing while scrolling and a hang on q. Re-rendering is tmux's job:
-# respawn-pane restarts the reader, wired to the resize hook in open_float.
-# Scroll position doesn't survive a re-render; glow's pager can't be told where
-# to land.
-#
-# Runs twice either way: the outer run builds the frame, the inner run
-# (--render) is the reader inside it.
+# Runs twice: the outer run builds the frame, the inner run (--render) is the
+# reader inside it.
 set -euo pipefail
 
-# The text measure, in columns — not the pane width. MAX_WIDTH is a ceiling so a
-# full-window zen float on a wide monitor still reads as a column; the margin
-# takes up the slack. There is deliberately no floor: a measure wider than the
-# pane makes glamour hard-wrap long and the terminal soft-wrap those lines
-# again, which is what made narrow panes look broken.
-#
-# glamour keeps a paragraph's source line breaks instead of reflowing, so for
-# prose these numbers do nothing except change where the column sits — until they
-# drop BELOW the width the file was written at (~88 in our design docs), at which
-# point the text genuinely re-wraps. 100 is snug around that; go to 80 if you
-# want a tighter measure than the source's.
+# The text measure, in columns — not the pane width. No floor: a measure wider
+# than the pane makes glamour hard-wrap and the terminal soft-wrap again.
+# glamour keeps a paragraph's source line breaks, so these only change where the
+# column sits until they drop below the width the file was written at (~88 here).
 readonly MIN_WIDTH=100
 readonly MAX_WIDTH=120
-# Tables are the only block that actually uses the width. See the rule below.
 readonly TABLE_WIDTH=150
 readonly POPUP_HEIGHT=90%
 
-# Where glow keeps the style this borrows from, so the centered copy looks the
-# same as an ordinary `glow`.
 readonly GLOW_CONFIG="$HOME/Library/Preferences/glow/glow.yml"
 
 is_markdown() {
@@ -69,9 +29,8 @@ has_table() {
   grep -qE '^[[:space:]]*\|' -- "$1"
 }
 
-# Columns the reader actually has. A popup isn't a pane and can't be resized, so
-# its width is fixed at launch and passed in; a float asks tmux for its pane's
-# current width, which is what makes re-rendering after a resize re-wrap.
+# A popup can't be resized, so its width is fixed at launch and passed in as
+# READ_WIDTH; a float asks tmux, which is what makes re-render re-wrap.
 pane_cols() {
   local cols=${READ_WIDTH:-}
   if [[ -z $cols ]]; then
@@ -81,14 +40,11 @@ pane_cols() {
   echo "$cols"
 }
 
-# The measure the text wraps to, inside `cols`.
 text_column() {
   local file=$1 cols=$2 w
-  # Tables are the one thing a reading column can't do. Four columns inside 120
-  # is ~28 each, so every cell wraps three or four times, and glamour draws no
-  # rule between rows to tell them apart — it hands lipgloss a border with
-  # BorderRow left off, and exposes no style key for it. Width is the only lever,
-  # so a doc with a table gets most of the pane instead.
+  # Tables get most of the pane: glamour draws no rule between rows (BorderRow
+  # is left off, with no style key to set it), so narrow cells that wrap three
+  # or four times become unreadable. Width is the only lever.
   if is_markdown "$file" && has_table "$file"; then
     w=$TABLE_WIDTH
   else
@@ -98,8 +54,8 @@ text_column() {
   echo "$w"
 }
 
-# Absolute path of glow's configured style, or nothing if it isn't a real file
-# ("auto" is the default and has no JSON to borrow from).
+# Nothing if glow's style isn't a real file ("auto" is the default and has no
+# JSON to borrow from).
 glow_style_path() {
   local p
   p=$(sed -n 's/^style:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}[[:space:]]*$/\1/p' \
@@ -112,17 +68,15 @@ render() {
   local file=$1 cols column margin style dir tmp pad
   cols=$(pane_cols)
   column=$(text_column "$file" "$cols")
+  # glamour's document.margin is symmetric: it indents by margin AND shrinks the
+  # wrap to width - 2*margin. So -w is the pane, not the measure.
   margin=$(((cols - column) / 2))
 
   if is_markdown "$file"; then
-    # -w is the pane, not the measure: glamour derives the measure by taking the
-    # margin off both sides. With no style JSON to patch there's no margin to
-    # set, so fall back to wrapping at the measure and living with left-aligned.
     if ((margin > 0)) && style=$(glow_style_path); then
-      # A directory, because BSD mktemp only substitutes a TRAILING XXXXXX and
-      # would hand back a file literally called style.XXXXXX.json. Double quotes
-      # so the path is baked into the trap now — by the time EXIT fires the
-      # local is long out of scope and rm would get an empty argument.
+      # A directory: BSD mktemp only substitutes a TRAILING XXXXXX. Double
+      # quotes so the path is baked into the trap now — by EXIT the local is out
+      # of scope and rm would get an empty argument.
       dir=$(mktemp -d "${TMPDIR:-/tmp}/tmux-read.XXXXXX")
       trap "rm -rf '$dir'" EXIT
       tmp=$dir/style.json
@@ -130,15 +84,16 @@ render() {
       # -p is glow's own pager; q closes it, which closes the popup or float.
       glow -p -w "$cols" -s "$tmp" -- "$file"
     else
+      # No style JSON to patch means no margin to set — wrap at the measure and
+      # live with left-aligned.
       glow -p -w "$column" -- "$file"
     fi
     return
   fi
 
-  # bat has no margin of its own, so centering means indenting its output and
-  # handing that to less instead of letting bat page it.
-  # To read the raw source of a markdown file instead of the rendered version,
-  # make is_markdown return false.
+  # bat has no margin, so centering means indenting its output into less rather
+  # than letting bat page it. To read a markdown file's source instead of the
+  # rendered version, make is_markdown return false.
   if ((margin > 0)); then
     pad=$(printf '%*s' "$margin" '')
     bat --color=always --paging=never --style=numbers,changes \
@@ -167,18 +122,10 @@ open_float() {
   bg=$(tmux display -p '#{@thm_bg}' 2>/dev/null) || bg=
   [[ $bg == '#'* ]] || bg=
 
-  # As near the whole window as a float goes, so little shows around it — the
-  # margin does the centering, not the geometry. The inset is not cosmetic: the
-  # float has to fit inside the window WITH its border, and asking for the full
-  # window_width/window_height is rejected outright as "size or position
-  # invalid". All four values are plain integers, which is also a constraint —
-  # `-x 100 -y 40` works but adding `-X C -Y C` fails, so display-popup's centre
-  # keywords don't carry over to a pane's position. window_height already
-  # excludes the status line.
-  #
-  # Borders painted in the theme background rather than hidden, since new-pane
-  # has no -B. Per-pane via -S/-R, so unlike the old spacer window this doesn't
-  # touch window-level options.
+  # The inset isn't cosmetic: the float must fit inside the window WITH its
+  # border, and the full window_width/window_height is rejected as "size or
+  # position invalid". All four values must be plain integers — adding -X C -Y C
+  # fails, so display-popup's centre keywords don't carry over to a pane.
   local inset=1 w h err
   w=$((win_width - inset * 2))
   h=$((win_height - inset * 2))
@@ -186,20 +133,17 @@ open_float() {
   local geo=(-x "$w" -y "$h" -X "$inset" -Y "$inset")
   [[ -n $bg ]] && geo+=(-S "fg=$bg" -R "fg=$bg")
 
-  # No silent fallback to a bare `new-pane`: that just hands back tmux's default
-  # half-size float and looks like the geometry worked. Say what tmux said, then
-  # open the default one so you still get to read the file.
+  # Not a silent fallback: a bare `new-pane` hands back tmux's default half-size
+  # float and looks like the geometry worked.
   if ! pane=$(tmux new-pane -P -F '#{pane_id}' "${geo[@]}" "$cmd" 2>&1); then
     err=$pane
     tmux display-message "tmux-read: ${w}x${h}+${inset}+${inset} rejected — $err"
     pane=$(tmux new-pane -P -F '#{pane_id}' "$cmd")
   fi
 
-  # Re-render on resize. Pane-scoped so it dies with the pane instead of
-  # outliving the reader on a window you actually work in. respawn-pane -k
-  # re-runs this same command, which re-reads the file, the pane width and the
-  # margin, and tmux does the teardown and redraw itself — nothing has to kill a
-  # pager mid-draw from the inside.
+  # Pane-scoped so the hook dies with the pane. respawn-pane -k re-runs this
+  # command, re-reading the file, the width and the margin; tmux does the
+  # teardown, so nothing kills a pager mid-draw from the inside.
   tmux set-hook -p -t "$pane" after-resize-pane \
     "respawn-pane -k -t $pane" 2>/dev/null || true
 }
@@ -224,21 +168,17 @@ file=${1:?usage: tmux-read [--popup|--float] FILE}
   echo "tmux-read: not inside tmux" >&2
   exit 1
 }
-# A scratch buffer with no path expands to the working directory in helix, so
-# this rejects directories too, not just unreadable files.
+# Rejects directories too: a helix scratch buffer with no path expands to cwd.
 [[ -f $file && -r $file ]] || {
   echo "tmux-read: nothing to read at $file" >&2
   exit 1
 }
 
-# The float covers the window, so the pane helix happens to be sitting in is
-# irrelevant to how wide the reader gets.
 win_width=$(tmux display -p -t "${TMUX_PANE:-}" '#{window_width}')
 win_height=$(tmux display -p -t "${TMUX_PANE:-}" '#{window_height}')
 
-# $0 is a bare name when found on PATH; the popup and the new pane may not
-# share that PATH, so resolve it here. Re-entered through `bash` explicitly so
-# the file doesn't need its exec bit, same as tmux-yazi.
+# $0 is a bare name when found on PATH, and the popup/new pane may not share
+# that PATH. Re-entered through `bash` so the file needs no exec bit.
 self=$0
 [[ $self == */* ]] || self=$(command -v "$0")
 

@@ -1,15 +1,7 @@
 #!/usr/bin/env bash
 # Push this repo out to a machine and install everything the README names.
 # The opposite direction from ./sync.sh, which pulls ~/ -> repo.
-#
-# Usage:
-#   ./bootstrap.sh                 # every phase, in order
-#   ./bootstrap.sh files brew      # only the named phases
-#   ./bootstrap.sh -n all          # print what would run, change nothing
-#   ./bootstrap.sh update          # upgrade an already-provisioned machine
-#
-# Phases: brew files shell rust node helix plugins pueue check
-# Every phase is idempotent and safe to re-run.
+# See usage() below, or run ./bootstrap.sh --help.
 
 set -euo pipefail
 
@@ -21,7 +13,7 @@ NODE_MAJOR=26
 FORMULAE=(
   lsd ripgrep bat fd sd zoxide fzf glow tlrc jq # core
   gh lazygit direnv git-delta protobuf tuicr    # dev (tuicr = code review TUI)
-  hyperfine pueue                               # benchmarks, job queue (see the pueue phase)
+  hyperfine                                     # benchmarks
   cmake ninja curl                              # build deps (helix, tmux-thumbs)
   postgresql@16 libpq@16 pgvector sqldiff pspg  # databases (pspg = PSQL_PAGER in .psqlrc)
   cpm                                           # migrations (sqitch installs separately)
@@ -70,6 +62,47 @@ EXEC_SCRIPTS=(
   toolchain-check
 )
 
+# ── usage ──
+# Unquoted heredoc so $NODE_MAJOR stays honest — no backticks in here.
+usage() {
+  cat <<EOF
+bootstrap.sh — push this repo out to a machine and install what it needs.
+The opposite direction from ./sync.sh, which pulls ~/ -> repo.
+
+Usage: ./bootstrap.sh [-n|--dry-run] [phase ...]
+
+  ./bootstrap.sh              all phases, in the order listed below
+  ./bootstrap.sh files        just push the config out to ~/ (no packages)
+  ./bootstrap.sh files brew   only the named phases, run in the order given
+  ./bootstrap.sh -n all       dry run: print what would happen, change nothing
+  ./bootstrap.sh update       upgrade an already-provisioned machine
+
+Phases — every one is idempotent and safe to re-run:
+
+  brew      Homebrew itself, then formulae, casks and gh extensions
+  files     rsync home/ -> ~/, plus chmod +x on the scripts that need it.
+            Config only, installs nothing. Leaves ~/.claude/settings.json
+            alone — that one holds live state, so merge it by hand.
+  shell     oh-my-zsh, powerlevel10k, zsh plugins, tpm
+  rust      rustup, nightly toolchain, ~/bin/rust-analyzer
+  node      nvm, node $NODE_MAJOR as default, global npm tooling
+  helix     build helix from source, symlink hx and its runtime
+  plugins   tmux plugins via tpm, yazi packages via ya
+  check     toolchain-check, then print what's left to do by hand
+
+  all       shorthand for the eight phases above, in that order
+  update    brew/gh/yazi/tpm/rustup/npm upgrades. Not part of all, and it
+            installs nothing new — it only moves what's there forward.
+
+Order matters on a fresh machine: helix needs rust, plugins needs brew and
+shell. Running with no arguments gets that right.
+
+Changing a config file that's already installed is just:
+
+  ./bootstrap.sh files        # then reload: tmux prefix+r, or exec zsh
+EOF
+}
+
 # ── plumbing ──
 say() { printf '\n==> %s\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
@@ -94,9 +127,8 @@ run_sh() {
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
-# Best-effort run, for the update phase only. `set -e` plus `run` means one
-# updater failing takes the whole phase with it — a yazi plugin with local
-# edits used to skip rustup, tpm and toolchain-check entirely.
+# Best-effort, for the update phase only: `set -e` plus `run` lets one failing
+# updater take the whole phase with it.
 try() {
   if ((DRY_RUN)); then
     printf '    [dry-run] %s\n' "$*"
@@ -125,11 +157,10 @@ phase_brew() {
   info "formulae (${#FORMULAE[@]})"
   run brew install "${FORMULAE[@]}"
 
-  # Every sqitch engine is an opt-in build option, and brew applies options to
-  # every formula on the command line, so sqitch can't ride along in FORMULAE.
-  # The tap ships no bottle either: each install compiles against whatever perl
-  # is current and hardcodes that Cellar path in the wrapper's shebang, so a
-  # perl major bump gives "bad interpreter" until it's rebuilt.
+  # Not in FORMULAE because brew applies build options to every formula on the
+  # command line, and every sqitch engine is opt-in. The tap ships no bottle, so
+  # each install bakes the current perl's Cellar path into the wrapper's shebang
+  # — a perl major bump gives "bad interpreter" until it's rebuilt.
   local sqitch=(sqitchers/sqitch/sqitch --with-postgres-support --with-sqlite-support)
   if ! brew list --versions sqitch >/dev/null 2>&1; then
     info "sqitch"
@@ -183,11 +214,9 @@ phase_files() {
   run rsync -a --exclude '.claude/' --exclude '.DS_Store' "$DOTFILES/home/" "$HOME/"
   info "everything except .claude/"
 
-  # Live owns settings.json: it carries per-project permission grants and UI
-  # keys (spinnerVerbs and friends) that the tracked copy omits on purpose, so a
-  # plain copy would clobber the real one. Merge that file by hand. Everything
-  # else under .claude/ round-trips — see CLAUDE_PATHS in sync.sh for what
-  # sync.sh pulls back, and why skills/ and agents/ aren't in it.
+  # Live owns settings.json — it carries per-project grants the tracked copy
+  # omits, so a plain copy would clobber it. Merge by hand. Everything else
+  # under .claude/ round-trips; see CLAUDE_PATHS in sync.sh.
   if [[ -d "$DOTFILES/home/.claude" ]]; then
     run rsync -a --exclude 'settings.json' --exclude '.DS_Store' \
       "$DOTFILES/home/.claude/" "$HOME/.claude/"
@@ -282,9 +311,8 @@ phase_node() {
     return 0
   }
 
-  # default-packages must exist *before* nvm install — it only applies on a
-  # fresh install, and nvm 0.40.2's already-installed branch has the guard
-  # inverted (nvm.sh:3549 vs :3653), so it never fires there.
+  # Must exist *before* nvm install: it only applies on a fresh install, and
+  # nvm 0.40.2 has the guard inverted on the already-installed branch.
   run mkdir -p "$NVM_DIR"
   run_sh "printf '%s\n' $(printf '%q ' "${NODE_PACKAGES[@]}") > '$NVM_DIR/default-packages'"
   info "default-packages: ${NODE_PACKAGES[*]}"
@@ -311,8 +339,8 @@ phase_node() {
 }
 
 phase_helix() {
-  # `brew install helix` is the same version and handles its own runtime, which
-  # would make both symlinks below unnecessary. The source build is a choice.
+  # `brew install helix` is the same version and handles its own runtime; the
+  # source build is a choice.
   say "helix (built from source)"
   local src="$HOME/mystuff/helix"
   if [[ -d "$src/.git" ]]; then
@@ -352,47 +380,6 @@ phase_plugins() {
   fi
 }
 
-phase_pueue() {
-  say "pueue: daemon + groups"
-  have pueue || {
-    warn "pueue not installed — run the brew phase first"
-    return 0
-  }
-
-  # launchd rather than a shell one-liner: pueued has to outlive the terminal
-  # that queued the job. It's also why the config sits at pueue's own default
-  # path — launchd never reads .zshenv, so PUEUE_CONFIG_PATH wouldn't reach it.
-  if brew services list 2>/dev/null | grep -qE '^pueue[[:space:]]+started'; then
-    info "pueued (running)"
-  else
-    run brew services start pueue
-  fi
-
-  if ((DRY_RUN)); then
-    printf '    [dry-run] pueue group add build --parallel 1\n'
-    return 0
-  fi
-
-  # The socket isn't up the instant launchd returns.
-  for _ in 1 2 3 4 5; do
-    pueue status >/dev/null 2>&1 && break
-    sleep 1
-  done
-  pueue status >/dev/null 2>&1 || {
-    warn "pueued not answering — check: brew services list; tail /opt/homebrew/var/log/pueued.log"
-    return 0
-  }
-
-  # Groups live in the state file, not the config, so they can't be shipped in
-  # pueue.yml. `add` on an existing group is an error, not a no-op.
-  local out
-  out="$(pueue group add build --parallel 1 2>&1)" || true
-  case "$out" in
-    *"already exists"*) info "group build (present)" ;;
-    *) info "${out:-group build added}" ;;
-  esac
-}
-
 phase_check() {
   say "Verifying"
   if have toolchain-check; then
@@ -426,12 +413,6 @@ phase_update() {
   # Aborts if a plugin has local edits. `ya pkg upgrade --discard` is the fix,
   # but only once you've checked the diff — don't put --discard in here.
   have ya && try ya pkg upgrade
-  # The daemon keeps running the old binary after an upgrade, and pueue_lib's
-  # protocol version is part of the handshake — the client will tell you to
-  # restart it. Do it here instead.
-  if have pueue && brew services list 2>/dev/null | grep -qE '^pueue[[:space:]]+started'; then
-    try brew services restart pueue
-  fi
   local tpm_update="$HOME/.config/tmux/plugins/tpm/bin/update_plugins"
   [[ -x "$tpm_update" ]] && try "$tpm_update" all
   have rustup && try rustup update
@@ -445,18 +426,18 @@ for arg in "$@"; do
   case "$arg" in
     -n | --dry-run) DRY_RUN=1 ;;
     -h | --help)
-      sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+      usage
       exit 0
       ;;
-    all) PHASES+=(brew files shell rust node helix plugins pueue check) ;;
-    brew | files | shell | rust | node | helix | plugins | pueue | check | update) PHASES+=("$arg") ;;
+    all) PHASES+=(brew files shell rust node helix plugins check) ;;
+    brew | files | shell | rust | node | helix | plugins | check | update) PHASES+=("$arg") ;;
     *)
       echo "unknown argument: $arg (try --help)" >&2
       exit 2
       ;;
   esac
 done
-((${#PHASES[@]})) || PHASES=(brew files shell rust node helix plugins pueue check)
+((${#PHASES[@]})) || PHASES=(brew files shell rust node helix plugins check)
 
 ((DRY_RUN)) && say "DRY RUN — nothing will be changed"
 

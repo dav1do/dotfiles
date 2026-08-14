@@ -92,26 +92,6 @@ CLI:
     real inline review to GitHub. Reviews persist per repo — `tuicr review list`.
   - themes are its own, not helix's: `catppuccin-mocha` here, `~/.config/tuicr/themes/*.toml` for
     local ones. `tuicr update` self-updates, but brew owns this install, so let brew do it.
-- job queue: `brew install pueue` — `pueued` runs under launchd via `brew services start pueue`
-  (the `pueue` phase in `bootstrap.sh` starts it and creates the `build` group)
-  - config is `~/Library/Application Support/pueue/pueue.yml`, **not** `~/.config/pueue` — pueue
-    uses `dirs` 6, whose `config_dir` on macOS is Application Support. Left at that default on
-    purpose: `PUEUE_CONFIG_PATH` in `.zshenv` would only reach the client, never the launchd
-    daemon, and the two would then disagree about the socket and state paths.
-  - state, logs, socket and pid default to `data_local_dir`, which on macOS is that *same*
-    directory — `shared.pueue_directory` moves them to `~/.local/share/pueue` so a task log can't
-    end up next to a tracked config. `sync.sh` names the single file in `HOME_FILES` regardless.
-  - `daemon.shell_command` is `zsh -c` rather than the default `sh -c`, so a queued command parses
-    the way it does when typed. Aliases are absent either way — the task shell is non-interactive.
-  - groups are state, not config, so they can't ship in the yml: `pueue group add build --parallel 1`.
-    `pub <cmd>` queues into it one at a time.
-  - `pueue add` snapshots the calling shell's environment into the task, which is what makes
-    direnv-provided vars (`DATABASE_URL` for the sqlx macros) work — tasks themselves run under a
-    bare `sh -c` that never loads direnv.
-  - the config's `callback` fires an osascript notification per finished task. Handlebars vars:
-    `id command path group result exit_code start end output output_path queued_count stashed_count`.
-  - after `brew upgrade pueue` the daemon is still the old binary and `pueue_lib`'s protocol version
-    is part of the handshake — restart it. `./bootstrap.sh update` does that when it's running.
 - benchmarking: `brew install hyperfine` (`bench` = `hyperfine --warmup 3`)
   - no config file, all flags. `--warmup N` so a cold cache doesn't skew run one, `-L param a,b,c`
     for sweeps over a `{param}` placeholder, `--prepare` to reset state between runs,
@@ -121,7 +101,7 @@ CLI:
 
 Apps:
 
-- terminal: `brew install --cask ghostty` (or `alacritty`)
+- terminal: `brew install --cask ghostty`
 - fonts: `brew install --cask font-meslo-lg-nerd-font font-symbols-only-nerd-font`
 - git creds: `brew install --cask git-credential-manager` (cask, not a formula)
 - tunnels: `brew install --cask ngrok`
@@ -275,7 +255,7 @@ These live in `home/.local/bin/` and land on `PATH` via `.zshrc` (`export PATH="
 | `claude-control [summary\|send ID MSG]`                                | fzf command & control over Claude Code tmux panes — switch, dispatch a prompt, spawn, or broadcast. Bound to `prefix+P`; `claude-control summary` is a one-line status for the tmux bar (currently commented out in `tmux.conf`).                                                                                                                                                                   |
 | `tmux-pane-picker [--query STRING]`                                    | Fuzzy-find and switch to any pane across all sessions, with a live capture-pane preview. Bound to `prefix+p`.                                                                                                                                                                                                                                                                                       |
 | `tmux-send-pane <pane-id>`                                             | Move the current pane into another session as a split (fzf-pick the target; you stay put). Bound to `prefix+S`.                                                                                                                                                                                                                                                                                     |
-| `tmux-yazi <pane-id>`                                                  | yazi in a popup that relays its `--cwd-file` back to the originating pane on quit, so `Q` leaves you where you browsed. Bound to `prefix+y`; invoked as `bash ~/.local/bin/tmux-yazi` since the file isn't executable. Only injects `cd` if the pane is at a shell prompt.                                                                                                                          |
+| `tmux-yazi <pane-id>`                                                  | yazi in its own window that relays its `--cwd-file` back to the originating pane on quit, so `Q` leaves you where you browsed. Bound to `prefix+y`; invoked as `bash ~/.local/bin/tmux-yazi` since the file isn't executable. Only injects `cd` if the pane is at a shell prompt.                                                                                                                          |
 | `pr-review.py <pr-number> [--no-cleanup]`                              | Check a PR out into a throwaway git worktree and review it with Claude Code. Not executable — run it as `python ~/.local/bin/pr-review.py 123`.                                                                                                                                                                                                                                                     |
 | `toolchain-check [-v] [-u]`                                            | Execute every external binary helix invokes and report which ones actually run. Exists because `hx --health` only stats the file, so a broken node interpreter shows ✓ while prettier and the node-based language servers are all dead. Distinguishes _broken_ from _missing for the active node version_ and prints the right recovery command for each. `-u` also checks npm globals for updates. |
 
@@ -304,7 +284,7 @@ Rust toolchain (builds helix itself, and provides `rust-analyzer`):
 ```sh
 git clone https://github.com/<you>/dotfiles ~/mystuff/dotfiles && cd ~/mystuff/dotfiles
 ./bootstrap.sh -n all      # print every command, change nothing
-./bootstrap.sh             # brew → files → shell → rust → node → helix → plugins → pueue → check
+./bootstrap.sh             # brew → files → shell → rust → node → helix → plugins → check
 ./bootstrap.sh files       # or one phase at a time
 ./bootstrap.sh update      # brew upgrade + gh/yazi/tpm/rustup + toolchain-check -u
 ```
