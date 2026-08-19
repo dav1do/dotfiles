@@ -56,6 +56,7 @@ EXEC_SCRIPTS=(
   claude-control
   cpf
   git-cleanup-branches
+  pr-review-watch.sh
   tmux-pane-picker
   tmux-read
   tmux-send-pane
