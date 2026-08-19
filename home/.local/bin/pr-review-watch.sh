@@ -29,6 +29,16 @@ PRW_LOG_KEEP_DAYS="${PRW_LOG_KEEP_DAYS:-14}"
 # Each review is a Workflow fan-out. The usage gate only runs between ticks, so
 # without a cap one quiet batch of PRs can spend the whole 5-hour window at once.
 PRW_MAX_JOBS="${PRW_MAX_JOBS:-2}"
+# /review-pr fans out through the Workflow tool, i.e. a background task, and the agent
+# ends its turn to wait on it. Interactively the task notification wakes it back up;
+# under `claude -p` there is no next turn, so the CLI drains background tasks and kills
+# them at CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS — 600s by default, less than one fan-out
+# takes. That exits rc 0 with the verify phase half-done and nothing posted. 0 means
+# wait forever; don't, or a wedged workflow holds a max-jobs slot until you notice.
+PRW_BG_WAIT_MS="${PRW_BG_WAIT_MS:-2700000}"
+# rc 0 does not mean a review exists, so a run that posted nothing releases its marker
+# for the next tick. Bounded, because each retry is another full fan-out.
+PRW_MAX_ATTEMPTS="${PRW_MAX_ATTEMPTS:-2}"
 # release-please and dependabot PRs are the bulk of what lands in the review queue
 # and there is nothing in them worth a fan-out.
 PRW_SKIP_TITLE_RE="${PRW_SKIP_TITLE_RE:-^chore\(main\): release|^chore\(deps\): bump}"
@@ -144,15 +154,26 @@ running_jobs() {
   echo "${n:-0}"
 }
 
-# Runs one review to completion. Returns claude's exit status.
+# Prints the state of your own most recent review on the PR, or nothing if you have
+# none. PENDING drafts are returned to their own author, which is the case that matters.
+my_review_state() {
+  gh api "repos/$1/pulls/$2/reviews" --paginate \
+    -q "[.[] | select(.user.login == \"$ME\") | .state] | last // empty" 2>/dev/null
+}
+
+# Runs one review to completion. Returns 0 only when a review actually landed.
 run_review() {
   local repo=$1 dir=$2 num=$3 url=$4 slug=$5
-  local stream="$PRW_STATE/$slug.jsonl" verdict="$PRW_STATE/$slug.txt" rc
+  local stream="$PRW_STATE/$slug.jsonl" errlog="$PRW_STATE/$slug.err"
+  local verdict="$PRW_STATE/$slug.txt" rc
   cd "$dir" || return 1
-  claude -p "$(review_prompt "$num")" \
+  # stderr to its own file: the background-task termination notice is plain text, and
+  # merging it into the stream aborts the jq below on a line it cannot parse.
+  CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="$PRW_BG_WAIT_MS" \
+    claude -p "$(review_prompt "$num")" \
     --permission-mode "$PRW_PERMISSION" \
     --output-format stream-json --verbose \
-    ${PRW_MODEL:+--model "$PRW_MODEL"} >"$stream" 2>&1
+    ${PRW_MODEL:+--model "$PRW_MODEL"} >"$stream" 2>"$errlog"
   rc=$?
   # The result event carries the final prose and the spend; everything else in the
   # stream is only interesting when a review goes wrong. A crash writes no result
@@ -162,24 +183,49 @@ run_review() {
     | "$\(.total_cost_usd // 0 | .*100 | round / 100) \(.num_turns // 0) turns \(.session_id)\n\(.result // "")"' \
     "$stream" 2>/dev/null)
   [ -n "$summary" ] || summary="no result event — see $stream"
-  printf '=== %s rc%s %s\n%s\n' "$(date '+%F %H:%M')" "$rc" "$repo#$num" "$summary" >>"$verdict"
+
+  # rc 0 with nothing posted is the failure this script used to report as a success:
+  # the agent hands the fan-out to a background task, the CLI kills it on the way out,
+  # and claude still exits clean. Only review-pr posts, so only it can be checked.
+  local posted="" outcome="ok"
+  if [ "$PRW_MODE" = review-pr ]; then
+    posted=$(my_review_state "$repo" "$num")
+    if [ -z "$posted" ]; then
+      outcome="NO REVIEW POSTED"
+      [ "$rc" -eq 0 ] && rc=64
+    fi
+  fi
+
+  printf '=== %s rc%s %s %s%s\n%s\n' "$(date '+%F %H:%M')" "$rc" "$repo#$num" \
+    "$outcome" "${posted:+ ($posted)}" "$summary" >>"$verdict"
+  # Whatever claude said on the way out is the only place a forced termination shows up.
+  [ -s "$errlog" ] && printf -- '--- stderr\n%s\n' "$(tail -n 5 "$errlog")" >>"$verdict"
+
   if [ "$rc" -eq 0 ]; then
-    notify "Reviewed $repo#$num" "draft review ready — $url"
+    notify "Reviewed $repo#$num" "${posted:-done} — $url"
   else
-    notify "$repo#$num" "review FAILED (rc $rc) — see $stream"
+    notify "$repo#$num" "review FAILED (rc $rc, $outcome) — see $stream"
   fi
   return "$rc"
 }
 
 spawn_review() {
   local repo=$1 dir=$2 num=$3 title=$4 url=$5
-  local slug marker
+  local slug marker tries
   slug="$(echo "$repo" | tr / _)-$num"
   marker="$PRW_STATE/$slug"
 
   # mkdir is the claim: atomic, so a second instance cannot spawn the same review.
   if ! mkdir "$marker" 2>/dev/null; then
     log "  #$num already handled — skip"
+    return
+  fi
+
+  # Getting the claim after a failure means run_review released it, so this is a retry.
+  # Keeping the marker on the last one is what stops the loop.
+  tries=$(cat "$PRW_STATE/$slug.attempts" 2>/dev/null || echo 0)
+  if [ "$tries" -ge "$PRW_MAX_ATTEMPTS" ]; then
+    log "  #$num failed $tries time(s) — giving up, see $PRW_STATE/$slug.txt"
     return
   fi
 
@@ -201,7 +247,8 @@ spawn_review() {
     return
   fi
 
-  log "  spawning $PRW_MODE for $repo#$num -> $PRW_STATE/$slug.jsonl"
+  log "  spawning $PRW_MODE for $repo#$num -> $PRW_STATE/$slug.jsonl (attempt $((tries + 1)))"
+  echo $((tries + 1)) >"$PRW_STATE/$slug.attempts"
   (run_review "$repo" "$dir" "$num" "$url" "$slug" || rmdir "$marker") &
 }
 
@@ -275,7 +322,8 @@ tick() {
     notify "PR review watch paused" "$hold"
     return
   fi
-  find "$PRW_STATE" -maxdepth 1 -name '*.jsonl' -mtime +"$PRW_LOG_KEEP_DAYS" -delete 2>/dev/null
+  find "$PRW_STATE" -maxdepth 1 \( -name '*.jsonl' -o -name '*.err' \) \
+    -mtime +"$PRW_LOG_KEEP_DAYS" -delete 2>/dev/null
   local entry
   for entry in $PRW_REPOS; do
     scan_repo "${entry%%=*}" "${entry#*=}"
