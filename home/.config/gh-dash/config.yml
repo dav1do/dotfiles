@@ -13,8 +13,10 @@ defaults:
 prSections:
     - title: My Pull Requests
       filters: is:open author:@me
+    - title: Re-requested
+      filters: is:open review-requested:@me reviewed-by:@me sort:updated-desc
     - title: Needs My Review
-      filters: is:open review-requested:@me
+      filters: is:open review-requested:@me -reviewed-by:@me
     - title: Involved
       filters: is:open involves:@me -author:@me 
     - title: Org (titan-index)
@@ -25,7 +27,7 @@ prSections:
       filters: is:open commenter:@me
 notificationsSections:
     - title: Review Requested
-      filters: reason:review-requested
+      filters: reason:review-requested is:unread
     - title: Mentioned
       filters: reason:mention
     - title: Participating
