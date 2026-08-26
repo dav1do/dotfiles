@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Run a command in a floating pane instead of a new window.
+# Run a command in a popup sized to fill a pane (or the window) instead of
+# tmux's default centred half-screen box.
 #
-#   tmux-float --pane   [-t PANE] CMD [ARG...]   boxed to the calling pane
-#   tmux-float --window [-t PANE] CMD [ARG...]   boxed to the whole window
+#   tmux-float --pane   [-t PANE] CMD [ARG...]   fills the calling pane
+#   tmux-float --window [-t PANE] CMD [ARG...]   fills the whole window
 #
-# Same geometry as tmux-read's float, minus the after-resize-pane hook — that
-# hook respawns the pane, which is a re-render for a reader and a kill for a
-# running TUI.
+# A popup, not a `new-pane` float: 3.7 floating panes sit above the layout, so
+# select-pane -L/-D/-U/-R finds no neighbour and C-h/j/k/l strands you inside
+# one. display-popup's -w/-h are not format-expanded ("height invalid"), which
+# is the whole reason the geometry is computed out here.
 set -euo pipefail
 
 # A float smaller than this is worse than the new-window it replaced.
@@ -50,30 +52,36 @@ read -r pane_left pane_top pane_width pane_height win_width win_height cwd < <(
     '#{pane_left} #{pane_top} #{pane_width} #{pane_height} #{window_width} #{window_height} #{pane_current_path}'
 )
 
+# -B drops the popup border, so -w/-h are all content and the popup lands
+# exactly on the box rather than one cell inside it.
 if [[ $mode == window ]]; then
-  box_left=0 box_top=0 box_width=$win_width box_height=$win_height
+  w=$win_width h=$win_height
+  # popup -x/-y are terminal rows/columns, but pane_top is window-relative, so
+  # a status line above the window would shift everything down by its height.
+  status=$(tmux show-options -gv status)
+  case $status in
+    off) lines=0 ;;
+    on) lines=1 ;;
+    *) lines=$status ;;
+  esac
+  [[ $(tmux show-options -gv status-position) == top ]] && top=$lines || top=0
+  # -y is the popup's BOTTOM row (same anchor as display-menu's P), not its top.
+  pos=(-x 0 -y "$((top + win_height - 1))")
 else
-  # pane_left/pane_top are already window-relative, which is the coordinate
-  # space new-pane wants.
-  box_left=$pane_left box_top=$pane_top box_width=$pane_width box_height=$pane_height
+  w=$pane_width h=$pane_height
+  # P is "the bottom left of the pane" and resolves against -t, so tmux does
+  # the window-to-terminal conversion for us.
+  pos=(-x P -y P -t "$target")
 fi
-
-# The inset isn't cosmetic: the float must fit inside its box WITH its border,
-# and the full box width/height is rejected as "size or position invalid".
-inset=1
-w=$((box_width - inset * 2))
-h=$((box_height - inset * 2))
-x=$((box_left + inset))
-y=$((box_top + inset))
 
 if ((w < MIN_COLS || h < MIN_ROWS)); then
   tmux display-message "tmux-float: ${w}x${h} is too small for $1"
   exit 1
 fi
 
-# Not a silent fallback: a bare `new-pane` hands back tmux's default half-size
-# float and looks like the geometry worked.
-if ! err=$(tmux new-pane -x "$w" -y "$h" -X "$x" -Y "$y" -c "$cwd" "$@" 2>&1); then
-  tmux display-message "tmux-float: ${w}x${h}+${x}+${y} rejected — $err"
+# Not a silent fallback: a rejected -w/-h hands back tmux's default half-screen
+# box and looks like the geometry worked.
+if ! err=$(tmux display-popup -E -B -w "$w" -h "$h" "${pos[@]}" -d "$cwd" "$@" 2>&1); then
+  tmux display-message "tmux-float: ${w}x${h} rejected — $err"
   exit 1
 fi
