@@ -57,7 +57,7 @@ CLI:
   - `hx --health <lang>` only checks that the binary _exists_. Use `toolchain-check` (in
     `~/.local/bin`) to check they actually run — see below for why that distinction matters.
 - gh extensions:
-  - `gh extension install dlvhdr/gh-dash` (PR/issue dashboard; bound to `prefix+h` in tmux)
+  - `gh extension install dlvhdr/gh-dash` (PR/issue dashboard; `prefix+h` floats it over the current pane, `prefix+H` gives it a window)
   - `gh extension install dlvhdr/gh-enhance` (CI detail TUI for a PR; bound to `T` in gh-dash — see the `enhance` keybinding in `home/.config/gh-dash/config.yml`)
 - editors: helix, built from source — see the helix section below
 - file managers: `brew install yazi lf`

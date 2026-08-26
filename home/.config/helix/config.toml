@@ -147,9 +147,11 @@ L = ":log-open"
 # `=` because that's already format-selection in normal mode; `:format` is the
 # whole-file version and, unlike `=`, goes through the external formatter too.
 "=" = ":format"
-# z as in zen: this file rendered in a reading column, in its own tmux window.
-# `:update` first — the reader reads from disk, not the buffer.
-z = [":update", ":sh ~/.local/bin/tmux-read --window '%{file_path_absolute}'"]
+# z as in zen: this file rendered in a reading column, floated over this pane.
+# `Z` takes the whole tmux window instead. `:update` first — the reader reads
+# from disk, not the buffer.
+z = [":update", ":sh ~/.local/bin/tmux-read --pane '%{file_path_absolute}'"]
+Z = [":update", ":sh ~/.local/bin/tmux-read --window '%{file_path_absolute}'"]
 # This file's path to the clipboard, next to helix's own `space y` (selection).
 # `%%s` because helix reads `%` in a command's raw args as an expansion, so a bare
 # `printf %s` dies with "missing a string delimiter after '%s'" before the shell runs.

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Run a command in a floating pane instead of a new window.
+#
+#   tmux-float --pane   [-t PANE] CMD [ARG...]   boxed to the calling pane
+#   tmux-float --window [-t PANE] CMD [ARG...]   boxed to the whole window
+#
+# Same geometry as tmux-read's float, minus the after-resize-pane hook — that
+# hook respawns the pane, which is a re-render for a reader and a kill for a
+# running TUI.
+set -euo pipefail
+
+# A float smaller than this is worse than the new-window it replaced.
+readonly MIN_COLS=60
+readonly MIN_ROWS=15
+
+mode=pane
+target=${TMUX_PANE:-}
+
+while (($#)); do
+  case $1 in
+    --pane | --window)
+      mode=${1#--}
+      shift
+      ;;
+    -t)
+      target=$2
+      shift 2
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *) break ;;
+  esac
+done
+
+(($#)) || {
+  echo "usage: tmux-float [--pane|--window] [-t PANE] CMD [ARG...]" >&2
+  exit 2
+}
+[[ -n ${TMUX:-} ]] || {
+  echo "tmux-float: not inside tmux" >&2
+  exit 1
+}
+
+# cwd last: it's the only field that can contain spaces, so `read` collects the
+# remainder into it.
+read -r pane_left pane_top pane_width pane_height win_width win_height cwd < <(
+  tmux display -p -t "$target" \
+    '#{pane_left} #{pane_top} #{pane_width} #{pane_height} #{window_width} #{window_height} #{pane_current_path}'
+)
+
+if [[ $mode == window ]]; then
+  box_left=0 box_top=0 box_width=$win_width box_height=$win_height
+else
+  # pane_left/pane_top are already window-relative, which is the coordinate
+  # space new-pane wants.
+  box_left=$pane_left box_top=$pane_top box_width=$pane_width box_height=$pane_height
+fi
+
+# The inset isn't cosmetic: the float must fit inside its box WITH its border,
+# and the full box width/height is rejected as "size or position invalid".
+inset=1
+w=$((box_width - inset * 2))
+h=$((box_height - inset * 2))
+x=$((box_left + inset))
+y=$((box_top + inset))
+
+if ((w < MIN_COLS || h < MIN_ROWS)); then
+  tmux display-message "tmux-float: ${w}x${h} is too small for $1"
+  exit 1
+fi
+
+# Not a silent fallback: a bare `new-pane` hands back tmux's default half-size
+# float and looks like the geometry worked.
+if ! err=$(tmux new-pane -x "$w" -y "$h" -X "$x" -Y "$y" -c "$cwd" "$@" 2>&1); then
+  tmux display-message "tmux-float: ${w}x${h}+${x}+${y} rejected — $err"
+  exit 1
+fi

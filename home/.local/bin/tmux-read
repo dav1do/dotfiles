@@ -4,6 +4,7 @@
 # still holding the buffer.
 #
 #   tmux-read --popup FILE    bordered overlay, gone when you quit
+#   tmux-read --pane FILE     covers the calling pane and persists
 #   tmux-read --float FILE    covers the window and persists (--window is an alias)
 #
 # Runs twice: the outer run builds the frame, the inner run (--render) is the
@@ -122,22 +123,28 @@ open_float() {
   bg=$(tmux display -p '#{@thm_bg}' 2>/dev/null) || bg=
   [[ $bg == '#'* ]] || bg=
 
-  # The inset isn't cosmetic: the float must fit inside the window WITH its
-  # border, and the full window_width/window_height is rejected as "size or
-  # position invalid". All four values must be plain integers — adding -X C -Y C
-  # fails, so display-popup's centre keywords don't carry over to a pane.
-  local inset=1 w h err
-  w=$((win_width - inset * 2))
-  h=$((win_height - inset * 2))
+  # The inset isn't cosmetic: the float must fit inside its box WITH its border,
+  # and the full box width/height is rejected as "size or position invalid". All
+  # four values must be plain integers — adding -X C -Y C fails, so
+  # display-popup's centre keywords don't carry over to a pane.
+  local inset=1 w h x y err
+  w=$((box_width - inset * 2))
+  h=$((box_height - inset * 2))
+  x=$((box_left + inset))
+  y=$((box_top + inset))
+  if ((w < 20 || h < 3)); then
+    tmux display-message "tmux-read: ${box_width}x${box_height} is too small to read in"
+    exit 1
+  fi
 
-  local geo=(-x "$w" -y "$h" -X "$inset" -Y "$inset")
+  local geo=(-x "$w" -y "$h" -X "$x" -Y "$y")
   [[ -n $bg ]] && geo+=(-S "fg=$bg" -R "fg=$bg")
 
   # Not a silent fallback: a bare `new-pane` hands back tmux's default half-size
   # float and looks like the geometry worked.
   if ! pane=$(tmux new-pane -P -F '#{pane_id}' "${geo[@]}" "$cmd" 2>&1); then
     err=$pane
-    tmux display-message "tmux-read: ${w}x${h}+${inset}+${inset} rejected — $err"
+    tmux display-message "tmux-read: ${w}x${h}+${x}+${y} rejected — $err"
     pane=$(tmux new-pane -P -F '#{pane_id}' "$cmd")
   fi
 
@@ -150,6 +157,16 @@ open_float() {
 
 open_window() { open_float; }
 
+# Same float, boxed to the calling pane instead of the window. pane_left/pane_top
+# are already window-relative, which is the coordinate space new-pane wants.
+open_pane() {
+  read -r box_left box_top box_width box_height < <(
+    tmux display -p -t "${TMUX_PANE:-}" \
+      '#{pane_left} #{pane_top} #{pane_width} #{pane_height}'
+  )
+  open_float
+}
+
 if [[ ${1:-} == --render ]]; then
   render "$2"
   exit
@@ -157,13 +174,13 @@ fi
 
 mode=float
 case ${1:-} in
-  --popup | --float | --window)
+  --popup | --pane | --float | --window)
     mode=${1#--}
     shift
     ;;
 esac
 
-file=${1:?usage: tmux-read [--popup|--float] FILE}
+file=${1:?usage: tmux-read [--popup|--pane|--float] FILE}
 [[ -n ${TMUX:-} ]] || {
   echo "tmux-read: not inside tmux" >&2
   exit 1
@@ -176,6 +193,12 @@ file=${1:?usage: tmux-read [--popup|--float] FILE}
 
 win_width=$(tmux display -p -t "${TMUX_PANE:-}" '#{window_width}')
 win_height=$(tmux display -p -t "${TMUX_PANE:-}" '#{window_height}')
+
+# The region open_float draws inside; open_pane narrows it to the calling pane.
+box_left=0
+box_top=0
+box_width=$win_width
+box_height=$win_height
 
 # $0 is a bare name when found on PATH, and the popup/new pane may not share
 # that PATH. Re-entered through `bash` so the file needs no exec bit.
