@@ -32,6 +32,10 @@ PRW_MAX_JOBS="${PRW_MAX_JOBS:-2}"
 # release-please and dependabot PRs are the bulk of what lands in the review queue
 # and there is nothing in them worth a fan-out.
 PRW_SKIP_TITLE_RE="${PRW_SKIP_TITLE_RE:-^chore\(main\): release|^chore\(deps\): bump}"
+# /review-pr hands its fan-out to a background Workflow and ends the turn. The
+# default ceiling kills that workflow mid-flight and the run still exits rc0, so
+# the review comes back empty; 0 waits for the workflow instead.
+PRW_BG_WAIT_MS="${PRW_BG_WAIT_MS:-0}"
 
 ONCE=1
 DRY=0
@@ -154,21 +158,24 @@ running_jobs() {
 # Runs one review to completion. Returns claude's exit status.
 run_review() {
   local repo=$1 dir=$2 num=$3 url=$4 slug=$5
-  local stream="$PRW_STATE/$slug.jsonl" verdict="$PRW_STATE/$slug.txt" rc
+  local stream="$PRW_STATE/$slug.jsonl" errlog="$PRW_STATE/$slug.err" verdict="$PRW_STATE/$slug.txt" rc
   cd "$dir" || return 1
-  claude -p "$(review_prompt "$num")" \
+  # stderr goes to its own file: interleaved into the stream it makes the whole
+  # thing invalid JSON and jq gives up before reaching the result event.
+  CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="$PRW_BG_WAIT_MS" \
+    claude -p "$(review_prompt "$num")" \
     --permission-mode "$PRW_PERMISSION" \
     --output-format stream-json --verbose \
-    ${PRW_MODEL:+--model "$PRW_MODEL"} >"$stream" 2>&1
+    ${PRW_MODEL:+--model "$PRW_MODEL"} >"$stream" 2>"$errlog"
   rc=$?
   # The result event carries the final prose and the spend; everything else in the
   # stream is only interesting when a review goes wrong. A crash writes no result
   # event, so the .txt gets a stub — it stays a complete history either way.
   local summary
-  summary=$(jq -r 'select(.type == "result")
+  summary=$(grep '^{' "$stream" | jq -r 'select(.type == "result")
     | "$\(.total_cost_usd // 0 | .*100 | round / 100) \(.num_turns // 0) turns \(.session_id)\n\(.result // "")"' \
-    "$stream" 2>/dev/null)
-  [ -n "$summary" ] || summary="no result event — see $stream"
+    2>/dev/null)
+  [ -n "$summary" ] || summary="no result event — see $stream / $errlog"
   printf '=== %s rc%s %s\n%s\n' "$(date '+%F %H:%M')" "$rc" "$repo#$num" "$summary" >>"$verdict"
   if [ "$rc" -eq 0 ]; then
     notify "Reviewed $repo#$num" "draft review ready — $url"
@@ -282,7 +289,7 @@ tick() {
     notify "PR review watch paused" "$hold"
     return
   fi
-  find "$PRW_STATE" -maxdepth 1 -name '*.jsonl' -mtime +"$PRW_LOG_KEEP_DAYS" -delete 2>/dev/null
+  find "$PRW_STATE" -maxdepth 1 \( -name '*.jsonl' -o -name '*.err' \) -mtime +"$PRW_LOG_KEEP_DAYS" -delete 2>/dev/null
   local entry
   for entry in $PRW_REPOS; do
     scan_repo "${entry%%=*}" "${entry#*=}"
