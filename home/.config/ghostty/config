@@ -66,7 +66,8 @@ keybind = global:cmd+escape=toggle_quick_terminal
 #keybind = cmd+escape=toggle_quick_terminal
 
 # tighter or looser line spacing — if you want closer to alacritty's density: 
-adjust-cell-height = 0
+# 15% buys back the vertical air that dense Rust with inlay hints eats.
+adjust-cell-height = 15%
  
 # auto-copy selections to clipboard (mac convention is no, linux convention is yes)
 copy-on-select = true

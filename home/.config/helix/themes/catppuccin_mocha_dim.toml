@@ -1,0 +1,49 @@
+# Hints at overlay2, no background box — the flat VS Code treatment, minus the
+# background box the upstream theme adds.
+inherits = "catppuccin_mocha"
+
+# Each column is that row's WCAG contrast ratio against that background. Higher ratio = the color stands further off the background, so it reads brighter and more legible. 1.0 means identical to the background (invisible). WCAG's thresholds: 4.5 for normal body text, 3.0 for large text or UI elements you just need to see. So overlay1 at 4.44 vs base is right at the readable-paragraph line, and surface1 at 1.80 is barely-there decoration — which is why upstream's hints looked too dim once you took away the mantle box that used to frame them. The mantle column only matters for text drawn inside a box filled with mantle; since you dropped the hint background, only the vs base column is live now.
+# | name     | hex       | vs base | vs mantle |
+# | -------- | --------- | --------- | ----------- |
+# | crust    | #11111b | 1.14      | 1.07        |
+# | mantle   | #181825 | 1.07      | 1.00        |
+# | base     | #1e1e2e | 1.00      | 1.07        |
+# | surface0 | #313244 | 1.30      | 1.40        |
+# | surface1 | #45475a | 1.80      | 1.92        |
+# | surface2 | #585b70 | 2.46      | 2.63        |
+# | overlay0 | #6c7086 | 3.36      | 3.59        |
+# | overlay1 | #7f849c | 4.44      | 4.75        |
+# | overlay2 | #9399b2 | 5.81      | 6.22        |
+# | subtext0 | #a6adc8 | 7.37      | 7.89        |
+# | subtext1 | #bac2de | 9.26      | 9.91        |
+# | text     | #cdd6f4 | 11.34     | 12.14       |
+
+
+# Comments a step below the hints. Matching them exactly (both overlay2, as VS
+# Code does) reads wrong here because the comment blocks in this codebase run four
+# and five lines — same colour over far more area, plus italic weight, lands
+# brighter than the short scattered hints do.
+"comment" = { fg = "surface2", modifiers = ["italic"] }
+
+# catppuccin puts `punctuation` at overlay2 — the same value the inlay hints use
+# below, so every `.` in a method chain rendered in virtual-text ink. VS Code keeps
+# punctuation at the default foreground, which is what makes its hints skippable:
+# dim means "not real code". subtext1 is clear of overlay2 without reaching `text`.
+"punctuation" = "subtext1"
+"punctuation.delimiter" = "subtext1"
+
+"ui.virtual.inlay-hint" = { fg = "overlay2" }
+"ui.virtual.inlay-hint.parameter" = { fg = "overlay2" }
+"ui.virtual.inlay-hint.type" = { fg = "overlay2" }
+
+# doc strings
+"comment.line.documentation" = { fg = "overlay0", modifiers = ["italic"] }
+"comment.block.documentation" = { fg = "overlay0", modifiers = ["italic"] }
+
+# Document highlights (auto-document-highlight) render every occurrence with this
+# one scope — helix has no separate style for the one under the cursor, so the
+# only lever is turning the field down and letting ui.cursor.primary plus the
+# cursorline mark "you are here". Upstream adds `modifiers = ["bold"]`, which is
+# what made all occurrences shout equally. The bg stays: this scope is shared with
+# the picker's selected row (ui/picker.rs), which needs it.
+"ui.highlight" = { bg = "surface1" }

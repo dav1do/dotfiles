@@ -4,16 +4,40 @@
 # Only non-default values belong below — defaults verified against
 # `rust-analyzer --print-config-schema`.
 [language-server.rust-analyzer.config]
-check.command = "check"                                          # clippy alternative
-files.watcher = "server"                                          # ra: "client" — helix default, lost to the clobber
+check.command = "check"                                                 # clippy alternative
+files.watcher = "server"                                                # ra: "client" — helix default, lost to the clobber
 files.exclude = [".direnv", ".devenv", "target", "node_modules", "nix"]
 diagnostics.disabled = ["inactive-code", "unresolved-proc-macro"]
 
+# 216 files here put tests inline via #[cfg(test)] vs 144 under tests/ dirs, so the
+# reference picker's path filter can't separate them — only ra can, semantically.
+# When the test callers are what you're after, skip `gr` and use `*` `space /`.
+references.excludeTests = true # ra: false
+
+# ra elides past 5 and renders the rest as `/* … */`, which on a wide enum hides
+# exactly the variants you opened the hover to find. The popup itself caps at 26
+# rows (hardcoded in helix's ui/popup.rs, not configurable) but scrolls with C-d
+# / C-u, so overshooting here costs a keypress, not the content.
+hover.show.enumVariants = 25 # ra: 5
+hover.show.fields = 25       # ra: 5
+
+# Matched to the VS Code rendering. genericParameterHints renders `Option<T: Uuid>`
+# in return position, which isn't valid Rust there — left at ra's default of off.
 [language-server.rust-analyzer.config.inlayHints]
-bindingModeHints.enable = true                                    # ra: false
-closureCaptureHints.enable = true                                 # ra: false
-closureReturnTypeHints.enable = "with_block"                      # ra: "never" — helix default
-lifetimeElisionHints.enable = "skip_trivial"                      # ra: "never" — helix default
+lifetimeElisionHints.enable = "skip_trivial" # ra: "never" — helix default
+
+typeHints.hideNamedConstructor = true      # ra: false — the RHS already names the type
+typeHints.hideClosureInitialization = true # ra: false — `let f: impl Fn(..)` on a closure binding
+typeHints.hideClosureParameter = true      # ra: false — restates the binding above it
+
+# `a..b` renders as `a..<b`. One character, and it removes the one ambiguity in
+# Rust range syntax you can't see at a glance.
+rangeExclusiveHints.enable = true # ra: false
+
+# Implicit derefs and borrows, but only inside `unsafe` — the one place the
+# compiler's silence about them is load-bearing. Effectively invisible elsewhere.
+expressionAdjustmentHints.enable = "always"        # ra: "never"
+expressionAdjustmentHints.hideOutsideUnsafe = true # ra: false
 
 # rust already has auto-format = true in helix's defaults, so no [[language]]
 # block is needed for it.
@@ -51,7 +75,11 @@ formatter = { command = "prettier", args = ["--parser", "babel"] }
 [[language]]
 name = "json"
 auto-format = true
-language-servers = [{ name = "vscode-json-language-server", except-features = ["format"] }]
+language-servers = [
+    { name = "vscode-json-language-server", except-features = [
+        "format",
+    ] },
+]
 formatter = { command = "prettier", args = ["--parser", "json"] }
 
 [[language]]
@@ -67,7 +95,12 @@ formatter = { command = "ruff", args = ["format", "-"] }
 [[language]]
 name = "toml"
 auto-format = true
-formatter = { command = "taplo", args = ["fmt", "-o", "indent_string=    ", "-"] }
+formatter = { command = "taplo", args = [
+    "fmt",
+    "-o",
+    "indent_string=    ",
+    "-",
+] }
 
 [[language]]
 name = "markdown"

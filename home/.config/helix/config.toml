@@ -1,4 +1,4 @@
-theme = "catppuccin_mocha"
+theme = "catppuccin_mocha_dim"
 
 [editor]
 line-number = "absolute"
@@ -24,6 +24,12 @@ trim-final-newlines = true
 # Labels for `gw` (goto_word) in typing order instead of alphabetical, so the
 # first labels handed out land under your fingers. Parsed as a string, not a list.
 jump-label-alphabet = "asdfghjklwertyuiopqzxcvbnm"
+# Colours nesting depth rather than dimming annotation — the one readability lever
+# that acts on the code itself. Needs `rainbows.scm`, which rust ships (91 of the
+# bundled languages do).
+rainbow-brackets = true
+# Frames hovers and completion menus, which otherwise float borderless over code.
+popup-border = "popup"
 # to use system clipboard by default
 # default-yank-register = "+"
 
@@ -62,6 +68,10 @@ right = [
 
 [editor.lsp]
 display-inlay-hints = true
+# Ambient version of `space h`. rust-analyzer's highlightRelated.* are all on by
+# default, so this also covers exit points, break points and closure captures —
+# not just plain references.
+auto-document-highlight = true
 display-messages = true
 auto-signature-help = true
 
