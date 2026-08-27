@@ -39,6 +39,7 @@ PRW_BG_WAIT_MS="${PRW_BG_WAIT_MS:-0}"
 
 ONCE=1
 DRY=0
+LANDED=NOT-POSTED
 NOTIFY_ONLY=0
 ONLY_PR=""
 while [ $# -gt 0 ]; do
@@ -155,11 +156,44 @@ running_jobs() {
   echo "${n:-0}"
 }
 
-# Runs one review to completion. Returns claude's exit status.
+# Counts the reviews you have already left on a PR, PENDING drafts included.
+# Prints nothing when gh fails, so callers can tell "zero" from "could not ask".
+my_review_count() {
+  gh api "repos/$1/pulls/$2/reviews" --paginate \
+    -q "[.[] | select(.user.login == \"$ME\")] | length" 2>/dev/null \
+    | awk '{n += $1} END {if (NR) print n}'
+}
+
+# Did this run actually leave a review? rc0 does not answer that: a run that ends
+# its turn asking you a question, or that returns while its fan-out Workflow is
+# still in flight, exits 0 having posted nothing.
+review_landed() {
+  local repo=$1 num=$2 stream=$3 before=$4 after
+  after=$(my_review_count "$repo" "$num")
+  if [ -n "$before" ] && [ -n "$after" ] && [ "$after" -gt "$before" ]; then
+    return 0
+  fi
+  # Fallback for when the API could not be reached at one end or the other: the
+  # skill posts with `gh api repos/.../pulls/N/reviews --input <file>`. Reads of
+  # the same endpoint are common and must not count, hence the --input.
+  grep -q "pulls/$num/reviews[^\"]*--input" "$stream" 2>/dev/null
+}
+
+# Runs one review to completion. Returns 0 when the PR should stay claimed —
+# either the review landed, or it finished without one and re-running would just
+# burn the same spend again. Returns nonzero only when claude itself failed, so
+# the caller releases the marker and a later tick retries.
 run_review() {
   local repo=$1 dir=$2 num=$3 url=$4 slug=$5
-  local stream="$PRW_STATE/$slug.jsonl" errlog="$PRW_STATE/$slug.err" verdict="$PRW_STATE/$slug.txt" rc
+  local stamp stream errlog verdict rc before
+  # Timestamped, because a second run of the same PR used to truncate the only
+  # record of why the first one came back empty.
+  stamp=$(date '+%Y%m%d-%H%M%S')
+  stream="$PRW_STATE/$slug-$stamp.jsonl"
+  errlog="$PRW_STATE/$slug-$stamp.err"
+  verdict="$PRW_STATE/$slug.txt"
   cd "$dir" || return 1
+  before=$(my_review_count "$repo" "$num")
   # stderr goes to its own file: interleaved into the stream it makes the whole
   # thing invalid JSON and jq gives up before reaching the result event.
   CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="$PRW_BG_WAIT_MS" \
@@ -176,13 +210,23 @@ run_review() {
     | "$\(.total_cost_usd // 0 | .*100 | round / 100) \(.num_turns // 0) turns \(.session_id)\n\(.result // "")"' \
     2>/dev/null)
   [ -n "$summary" ] || summary="no result event — see $stream / $errlog"
-  printf '=== %s rc%s %s\n%s\n' "$(date '+%F %H:%M')" "$rc" "$repo#$num" "$summary" >>"$verdict"
-  if [ "$rc" -eq 0 ]; then
+
+  LANDED=NOT-POSTED
+  review_landed "$repo" "$num" "$stream" "$before" && LANDED=POSTED
+  printf '=== %s rc%s %s %s\n%s\n' "$(date '+%F %H:%M')" "$rc" "$repo#$num" "$LANDED" "$summary" >>"$verdict"
+
+  if [ "$rc" -ne 0 ]; then
+    notify "$repo#$num" "review FAILED (rc $rc) — see $stream"
+    return "$rc"
+  fi
+  if [ "$LANDED" = POSTED ]; then
     notify "Reviewed $repo#$num" "draft review ready — $url"
   else
-    notify "$repo#$num" "review FAILED (rc $rc) — see $stream"
+    # Deliberately keeps the marker: the run completed, so a retry would spend
+    # the same money to end the same way. Read the stream and decide.
+    notify "$repo#$num" "NO REVIEW POSTED — run finished without one, see $stream"
   fi
-  return "$rc"
+  return 0
 }
 
 spawn_review() {
@@ -215,7 +259,7 @@ spawn_review() {
     return
   fi
 
-  log "  spawning $PRW_MODE for $repo#$num -> $PRW_STATE/$slug.jsonl"
+  log "  spawning $PRW_MODE for $repo#$num -> $PRW_STATE/$slug-*.jsonl"
   (run_review "$repo" "$dir" "$num" "$url" "$slug" || rmdir "$marker") &
 }
 
@@ -317,10 +361,13 @@ if [ -n "$ONLY_PR" ]; then
     echo "would run in $dir: claude -p \"$(review_prompt "$num")\" --permission-mode $PRW_PERMISSION"
     exit 0
   fi
-  log "reviewing $repo#$num in $dir -> $PRW_STATE/$slug.jsonl"
+  log "reviewing $repo#$num in $dir -> $PRW_STATE/$slug-*.jsonl"
   run_review "$repo" "$dir" "$num" "https://github.com/$repo/pull/$num" "$slug"
   rc=$?
   tail -n 40 "$PRW_STATE/$slug.txt" 2>/dev/null
+  # A finished run that posted nothing is a failure to the caller, even though
+  # spawn_review keeps the marker for it.
+  [ "$rc" -eq 0 ] && [ "$LANDED" != POSTED ] && rc=3
   exit "$rc"
 fi
 
@@ -331,7 +378,16 @@ else
   # loop, and the markers only dedupe reviews, not the API traffic.
   lock="$PRW_STATE/.watch.lock"
   if ! mkdir "$lock" 2>/dev/null; then
-    held=$(cat "$lock/pid" 2>/dev/null)
+    # An empty pid file is not a stale lock: mkdir and the write below are two
+    # steps, and a watcher caught between them would otherwise be evicted by the
+    # very check meant to protect it. That gap is microseconds, so a pid that is
+    # still missing seconds later belongs to a run that died inside it.
+    held=""
+    for _ in 1 2 3 4 5; do
+      held=$(cat "$lock/pid" 2>/dev/null)
+      [ -n "$held" ] && break
+      sleep 1
+    done
     if [ -n "$held" ] && kill -0 "$held" 2>/dev/null; then
       echo "already watching (pid $held)" >&2
       exit 1
@@ -341,15 +397,40 @@ else
     mkdir "$lock" || exit 1
   fi
   echo $$ >"$lock/pid"
+
+  # Release only a lock we still hold. An unconditional `rm -rf "$lock"` here is
+  # what let watchers multiply: a watcher exiting after someone else took the
+  # lock deleted the live holder's, the next `mkdir` then succeeded, and nothing
+  # made the running one notice. Two became three became five.
+  lock_holder() { cat "$lock/pid" 2>/dev/null; }
+  release_lock() {
+    if [ "$(lock_holder)" = "$$" ]; then rm -rf "$lock"; fi
+  }
   # Two traps, not one: a signal handler that only cleans up returns into the
   # while loop, so ^C would drop the lock and keep watching. EXIT does the removal.
-  trap 'rm -rf "$lock"' EXIT
+  trap release_lock EXIT
   trap 'log "stopped"; exit 130' HUP INT TERM
+
+  # Strays from before the fix hold no lock and keep their own PRW_MAX_JOBS, so
+  # they double the review spend invisibly. Report, don't kill — one of them may
+  # be the copy the user actually wants.
+  strays=$(pgrep -f 'pr-review-watch\.sh .*--watch' 2>/dev/null | grep -v "^$$\$" | tr '\n' ' ')
+  if [ -n "${strays// /}" ]; then
+    log "WARNING: other watchers running without the lock: ${strays% }"
+    log "         they each run up to \$PRW_MAX_JOBS jobs and gate usage separately"
+    log "         kill ${strays% }"
+  fi
 
   log "watching every ${PRW_INTERVAL}s (mode=$PRW_MODE, quiet=${PRW_QUIET_MIN}m, max-jobs=$PRW_MAX_JOBS)"
   # backgrounded sleep + wait, so a HUP from `tmux kill-window` releases the lock
   # now instead of whenever the interval happens to run out.
   while :; do
+    # Losing the lock means another watcher took over; keep looping and both run.
+    held=$(lock_holder)
+    if [ "$held" != "$$" ]; then
+      log "lock now held by pid ${held:-none} — exiting"
+      exit 0
+    fi
     tick
     sleep "$PRW_INTERVAL" &
     wait $!
