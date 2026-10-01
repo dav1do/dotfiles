@@ -45,12 +45,16 @@ QUERY='
     (.workspace.current_dir // .cwd // ""),
     s(.worktree.name),
     s(.worktree.branch),
-    s(.transcript_path)
+    s(.transcript_path),
+    s(.prompt_cache.warm),
+    s(.prompt_cache.expires_at),
+    s(.prompt_cache.recache_tokens_if_cold)
   ] | join("")'
 
 IFS=$'\x1f' read -r model used_disp used_int five_disp five_int five_resets \
   week_disp week_int week_resets cost_cents lines_added lines_removed \
   cwd worktree_name worktree_branch transcript \
+  pc_warm pc_expires pc_recache \
   < <(printf '%s' "$input" | jq -r "$QUERY")
 
 # Pick color for a percentage (0-100 int): high is BAD (usage meters). Sets REPLY.
@@ -233,9 +237,25 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
   fi
 fi
 
+# Prompt-cache warmth. The cache:% above is session history; this is whether the
+# NEXT message pays to rebuild the prefix. Wall-clock rather than a bare TTL —
+# the question when you come back to an idle session is whether it survived.
+pc_part=""
+if [ "$pc_warm" = true ] && [ -n "$pc_expires" ] && [ "$pc_expires" -gt "$now" ] 2>/dev/null; then
+  printf -v pc_at '%(%H:%M)T' "$pc_expires"
+  fmt_countdown "$((pc_expires - now))"
+  pc_part="${DIM}warm til ${RESET}${GREEN}${pc_at}${RESET}${DIM}(${REPLY})${RESET}"
+elif [ -n "$pc_warm" ]; then
+  pc_part="${RED}cache cold${RESET}"
+  if [ -n "$pc_recache" ] && [ "$pc_recache" -gt 0 ] 2>/dev/null; then
+    humanize "$pc_recache"
+    pc_part="${pc_part}${DIM}(+${REPLY} rebuild)${RESET}"
+  fi
+fi
+
 # Assemble line 2 in the requested order, skipping empties.
 line2_parts=()
-for p in "$cache_part" "$diff_part" "$tok_part" "$agents_part" "$web_part" "$tools_part"; do
+for p in "$cache_part" "$pc_part" "$diff_part" "$tok_part" "$agents_part" "$web_part" "$tools_part"; do
   [ -n "$p" ] && line2_parts+=("$p")
 done
 
