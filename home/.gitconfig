@@ -13,6 +13,7 @@
 	gpgSign = true
 [core]
 	pager = delta
+	attributesFile = ~/.gitattributes
 [interactive]
 	diffFilter = delta --color-only
 [delta]
@@ -26,6 +27,17 @@
 	syntax-theme = "gruvbox-dark"
 [merge]
 	conflictStyle = zdiff3
+	tool = vimdiff-readable
+[mergetool]
+	prompt = false
+	keepBackup = false
+# vimdiff2 layout (LOCAL | MERGED | REMOTE) with a legible palette
+[mergetool "vimdiff-readable"]
+	cmd = vim -f -d -c 'source ~/.config/git/mergecolors.vim' -c 'wincmd l' \"$LOCAL\" \"$MERGED\" \"$REMOTE\"
+	trustExitCode = false
+[merge "mergiraf"]
+	name = mergiraf
+	driver = mergiraf merge --git %O %A %B -s %S -x %X -y %Y -p %P -l %L
 [credential "https://dev.azure.com"]
 	useHttpPath = true
 [fetch]
