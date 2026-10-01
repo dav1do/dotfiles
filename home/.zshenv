@@ -19,3 +19,6 @@ if [[ -d $HOME/.nvm/versions/node ]]; then
     [[ -n $ver && -d $root/$ver/bin ]] && export PATH="$root/$ver/bin:$PATH"
   }
 fi
+
+# ── Secrets, per-machine — never synced ────────────────────────────────────
+[[ -r "$HOME/.zshenv.local" ]] && . "$HOME/.zshenv.local"

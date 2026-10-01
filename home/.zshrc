@@ -146,9 +146,6 @@ urlparse() {
   esac
 }
 
-export CLAUDE_CODE_NO_FLICKER=1 # breaks normal-mode scrollback (use c-o transcript)
-export CLAUDE_CODE_DISABLE_MOUSE=1
-
 lint-skills() {
   lint-prompts -r --min "${1:-HIGH}" \
     ~/.claude/skills ~/.claude/plugins \

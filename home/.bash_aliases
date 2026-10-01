@@ -35,8 +35,8 @@ alias unwip='git reset HEAD~1' # omz's gunwip is safer (only resets if HEAD is a
 
 # overrides (omz uses these names for other things — keep mine)
 # alias ga='git add .'                     # omz: git add
-alias gcm='git commit -m'                # omz: git checkout main  ⚠️
-alias gca='git commit --amend --no-edit' # omz: git commit -v -a
+alias gcm='git commit -m' # omz: git checkout main  ⚠️
+alias gca='git commit --amend'
 alias gl='git log --graph --pretty=format:'\''%Cred%h%Creset %C(magenta)%G?%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'\'' --abbrev-commit'
 alias gg='git pull' # gl in zsh git plugin (git get mnemonic)
 alias tf='terraform'
