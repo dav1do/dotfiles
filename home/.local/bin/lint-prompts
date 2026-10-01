@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""lint-prompts — find frequency claims in text a model will act on.
+
+A prompt that says how often something should happen sets a quota, not a description. The agent
+complies, and whoever reads the output back mistakes compliance for measurement. Burdens of proof
+("set real=true only if you opened the file and confirmed it") are safe: they say what to require,
+and an agent that confirms everything has fully obeyed. Frequencies ("most PRs are sound",
+"reviewer labels run hot", "~15% get dropped") ask about a distribution the agent sees one sample
+of, so it can only produce the rate you named.
+
+    lint-prompts SKILL.md workflow.js       # lint specific files
+    lint-prompts -r ~/.claude/skills        # walk a directory
+    lint-prompts --diff                     # only files changed vs HEAD
+    lint-prompts -q ...                     # exit status only
+
+Put `lint-prompts:ok` on a line to accept a justified instance — a frequency about method rather
+than outcome, or prose that quotes a bad prompt in order to explain it. It only works in comments
+and markdown: inside a template literal the marker becomes part of the prompt the agent reads, so
+there the fix is to reword. That is usually the right answer anyway.
+
+Exit 1 if anything HIGH is found, so it can gate a commit hook. Only .md/.markdown/.txt (all of
+which are treated as prompt text) and .js/.mjs/.ts/.tsx/.py/.rb/.go/.rs/.sh (string bodies at full
+confidence) are examined; anything else is skipped silently.
+
+This is a heuristic on word lists. It flags candidates for a human to judge; it does not decide.
+Two known limits, stated rather than hidden:
+  * "Usually you should open the file first" is advice about METHOD and is fine. Only a frequency
+    attached to an OUTCOME is the bug. The HIGH/MED split below is an attempt at that distinction
+    (a frequency term near an outcome word), and it is only an attempt.
+  * In code, prompt text is normally a template literal or triple-quoted string; the comments
+    around it are documentation a model never sees. This checks strings at full confidence and
+    everything else in a code file at reduced confidence. It does not parse — a prompt built by
+    concatenation, or a comment quoting a prompt, will be misjudged.
+"""
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+# Frequency language. Matching one of these is necessary but not sufficient.
+FREQ = re.compile(
+    r"\b\d{1,3}\s?%"
+    r"|\b(usually|typically|generally|normally|often|rarely|seldom|commonly|frequently)\b"
+    # "at most one" is a limit, and "the most judgment-heavy" is a superlative — neither is a
+    # frequency. Excluding those two shapes is what keeps a bare "most" usable at all.
+    r"|\b(most|majority|minority) of\b|\bmostly\b"
+    r"|(?<!at )(?<!the )\bmost\b(?!\s+(?:likely|specific|recent|severe|important|judgment|of))"
+    r"|\b(almost|nearly) (always|never)\b|\bmore often than not\b"
+    r"|\bexpected (verdict|answer|outcome|result|rate)\b"
+    r"|\bruns? hot\b|\bin most cases\b|\bas a rule\b",
+    re.I,
+)
+
+# What makes a frequency a QUOTA rather than method advice: it is attached to the thing the agent
+# is being asked to output. Proximity is the proxy — same line, within ~60 characters.
+OUTCOME = re.compile(
+    r"\b(verdict|finding|findings|answer|outcome|result|severity|score|rating"
+    r"|sound|questionable|wrong|nit|nits|blocking|suggestion"
+    r"|real|true|false|drop\w*|refut\w*|demot\w*|reject\w*|flag\w*|pass\w*|fail\w*"
+    r"|healthy|noise|noisy|signal|bug|bugs|correct\w*|wrong)\b",
+    re.I,
+)
+
+IGNORE = "lint-prompts:ok"   # put it anywhere on a line to accept that instance
+CODE_EXT = {".js", ".mjs", ".ts", ".tsx", ".py", ".rb", ".go", ".rs", ".sh"}
+PROMPT_EXT = {".md", ".markdown", ".txt"}
+STRING_SPAN = re.compile(r"`[^`]*`|\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''", re.M)
+
+
+def string_lines(text):
+    """1-based line numbers that fall inside a template literal / triple-quoted string."""
+    inside = set()
+    for m in STRING_SPAN.finditer(text):
+        start = text.count("\n", 0, m.start()) + 1
+        end = text.count("\n", 0, m.end()) + 1
+        inside.update(range(start, end + 1))
+    return inside
+
+
+def lint(path):
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+    except (OSError, IsADirectoryError):
+        return []
+    ext = Path(path).suffix.lower()
+    if ext not in CODE_EXT and ext not in PROMPT_EXT:
+        return []
+    executed = None if ext in PROMPT_EXT else string_lines(text)
+
+    out = []
+    for n, line in enumerate(text.splitlines(), 1):
+        if IGNORE in line:      # a justified instance; a gate you can't silence gets switched off
+            continue
+        for m in FREQ.finditer(line):
+            near = line[max(0, m.start() - 60): m.end() + 60]
+            attached = bool(OUTCOME.search(near))
+            # Everything in a .md is context. In code, only string bodies are.
+            in_prompt = True if executed is None else (n in executed)
+            if attached and in_prompt:
+                level = "HIGH"
+            elif attached or in_prompt:
+                level = "MED"
+            else:
+                level = "LOW"
+            out.append((level, path, n, m.group(0).strip(), line.strip()[:110]))
+    return out
+
+
+def changed_files():
+    try:
+        r = subprocess.run(["git", "diff", "--name-only", "HEAD"],
+                           capture_output=True, text=True, check=True)
+        return [f for f in r.stdout.split("\n") if f]
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        sys.exit("lint-prompts: --diff needs a git repo")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Find frequency claims in prompt text.")
+    ap.add_argument("paths", nargs="*", default=["."])
+    ap.add_argument("-r", "--recursive", action="store_true", help="walk directories")
+    ap.add_argument("--diff", action="store_true", help="lint files changed vs HEAD")
+    ap.add_argument("--min", choices=["HIGH", "MED", "LOW"], default="MED",
+                    help="lowest level to report (default MED)")
+    ap.add_argument("-q", "--quiet", action="store_true", help="exit status only")
+    a = ap.parse_args()
+
+    targets = changed_files() if a.diff else []
+    if not targets:
+        for p in a.paths:
+            p = Path(p)
+            if p.is_dir():
+                targets += [str(f) for f in p.rglob("*")] if a.recursive else \
+                           [str(f) for f in p.iterdir() if f.is_file()]
+            else:
+                targets.append(str(p))
+
+    rank = {"HIGH": 3, "MED": 2, "LOW": 1}
+    hits = [h for t in targets for h in lint(t) if rank[h[0]] >= rank[a.min]]
+    hits.sort(key=lambda h: (-rank[h[0]], h[1], h[2]))
+
+    if not a.quiet:
+        for level, path, n, term, line in hits:
+            print(f"{level:<5} {path}:{n}  [{term}]\n      {line}")
+        if hits:
+            high = sum(1 for h in hits if h[0] == "HIGH")
+            print(f"\n{len(hits)} candidate(s), {high} HIGH. A frequency attached to an outcome is "
+                  f"a quota — replace it with the evidence standard it was standing in for.\n"
+                  f"A frequency describing METHOD is fine; this cannot tell them apart, you can.")
+    return 1 if any(h[0] == "HIGH" for h in hits) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

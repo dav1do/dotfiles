@@ -1,0 +1,268 @@
+#!/usr/bin/env bash
+# Run the test at a cursor position, the way an editor's "run test" lens would.
+# Helix has no such command: rust-analyzer offers it over the custom
+# `experimental/runnables` LSP extension rather than as a code action, so
+# nothing in helix can ask for it.
+#
+#   run-test FILE:LINE      the test enclosing that line
+#   run-test FILE           every test in the file
+#   run-test --here ...     run in this terminal instead of a tmux popup
+#   run-test -n ...         print the command and exit
+#
+# Language comes from the extension, project root from walking up for a manifest.
+set -euo pipefail
+
+# Rows for the test pane's split, when there isn't one to reuse.
+readonly SPLIT_HEIGHT=35%
+
+usage() {
+  echo "usage: run-test [--here|-n] FILE[:LINE]" >&2
+  exit 2
+}
+
+here=0
+dry=0
+while (($#)); do
+  case $1 in
+    --here) here=1 ;;
+    -n | --dry-run) dry=1 ;;
+    --) shift; break ;;
+    -*) usage ;;
+    *) break ;;
+  esac
+  shift
+done
+(($# == 1)) || usage
+
+target=$1
+line=
+# Only a trailing :digits is a line number — a windows-ish path or a colon in a
+# directory name shouldn't be eaten.
+if [[ $target =~ ^(.*):([0-9]+)$ ]]; then
+  target=${BASH_REMATCH[1]}
+  line=${BASH_REMATCH[2]}
+fi
+[[ -f $target ]] || {
+  echo "run-test: no file at $target" >&2
+  exit 1
+}
+file=$(cd "$(dirname "$target")" && pwd)/$(basename "$target")
+dir=$(dirname "$file")
+
+# Nearest ancestor holding any of the named files.
+find_root() {
+  local d=$dir f
+  while [[ $d != / ]]; do
+    for f in "$@"; do
+      [[ -e $d/$f ]] && { echo "$d"; return 0; }
+    done
+    d=$(dirname "$d")
+  done
+  return 1
+}
+
+# Innermost declaration enclosing $line, qualified by the enclosing blocks
+# indented less than it. Indentation and not brace matching: all three of these
+# languages indent a nested test, and a brace counter that doesn't understand
+# strings and comments drifts on the first `}` inside a string literal.
+#
+# Both regexes must end at the first character of the name, so the name can be
+# read off RSTART+RLENGTH without a second regex to strip the keyword.
+enclosing() {
+  # attr arrives as an awk -v value, which processes escapes once before the
+  # regex sees it — so a literal `[` has to be written `\\[` at the call site.
+  local inner=$1 outer=$2 sep=$3 attr=${4:-}
+  awk -v ln="$line" -v inner="$inner" -v outer="$outer" -v sep="$sep" -v attr="$attr" '
+    function indent(s,   t) { t = s; sub(/[^ \t].*/, "", t); gsub(/\t/, "    ", t); return length(t) }
+    function name(s, re,   n) {
+      if (!match(s, re)) return ""
+      n = substr(s, RSTART + RLENGTH - 1)
+      sub(/[^A-Za-z0-9_].*/, "", n)
+      return n
+    }
+    { L[NR] = $0 }
+    END {
+      if (ln > NR) ln = NR
+      for (i = ln; i >= 1; i--) if (L[i] !~ /^[ \t]*(#|\/\/)/ && match(L[i], inner)) { at = i; break }
+      if (!at) exit 1
+      # A cursor parked on ordinary code finds the nearest ordinary function,
+      # and `cargo test <not-a-test>` filters everything out and exits 0 — a
+      # silent no-op that reads exactly like a pass. So when the caller names an
+      # attribute, the declaration must carry it, across the attribute, comment
+      # and blank lines directly above it.
+      if (attr != "") {
+        ok = 0
+        for (i = at - 1; i >= 1 && L[i] ~ /^[ \t]*(#|\/\/|$)/; i--) if (L[i] ~ attr) { ok = 1; break }
+        if (!ok) exit 1
+      }
+      path = name(L[at], inner)
+      if (path == "") exit 1
+      ind = indent(L[at])
+      if (outer != "") {
+        for (i = at - 1; i >= 1; i--) {
+          if (L[i] !~ /^[ \t]*(#|\/\/)/ && match(L[i], outer) && indent(L[i]) < ind) {
+            path = name(L[i], outer) sep path
+            ind = indent(L[i])
+          }
+        }
+      }
+      print path
+    }
+  ' "$file"
+}
+
+# The quoted first argument of the innermost it()/test() above $line. Only the
+# innermost: vitest and jest both match -t as a substring of the full name, so
+# walking the describe() chain adds nothing but more strings to quote wrong.
+enclosing_js() {
+  awk -v ln="$line" '
+    { L[NR] = $0 }
+    END {
+      if (ln > NR) ln = NR
+      for (i = ln; i >= 1; i--) {
+        if (L[i] ~ /^[ \t]*\/\//) continue
+        # Two regexes on purpose: the broad one finds any it()/test() call, the
+        # narrow one finds the ones whose name is a plain literal. A line that
+        # matches only the broad one — `it.each([...])("%i", …)`, a name built
+        # from a variable — has no name to pass to -t, and walking further up
+        # would silently run the *previous* test instead. Give up and let the
+        # caller run the whole file.
+        if (!match(L[i], /(^|[^A-Za-z0-9_$.])(it|test)(\.[A-Za-z]+)*[ \t]*\(/)) continue
+        if (!match(L[i], /(^|[^A-Za-z0-9_$.])(it|test)(\.[A-Za-z]+)*[ \t]*\([ \t]*["`\x27]/)) exit 1
+        s = substr(L[i], RSTART + RLENGTH - 1)
+        q = substr(s, 1, 1)
+        out = ""
+        for (j = 2; j <= length(s); j++) {
+          c = substr(s, j, 1)
+          if (c == "\\") { out = out substr(s, j + 1, 1); j++; continue }
+          if (c == q) { if (out != "") print out; exit (out == "") }
+          out = out c
+        }
+        exit 1
+      }
+      exit 1
+    }
+  ' "$file"
+}
+
+# `?` on the trailing name character would make RLENGTH land before it, so each
+# regex ends in a required [A-Za-z_].
+readonly RS_FN='(^|[^A-Za-z0-9_])fn[ \t]+[A-Za-z_]'
+readonly RS_MOD='(^|[^A-Za-z0-9_])mod[ \t]+[A-Za-z_]'
+readonly PY_FN='(^|[^A-Za-z0-9_])def[ \t]+[A-Za-z_]'
+readonly PY_CLASS='(^|[^A-Za-z0-9_])class[ \t]+[A-Za-z_]'
+
+root=
+cmd=()
+what=
+
+case $file in
+  *.rs)
+    root=$(find_root Cargo.toml) || { echo "run-test: no Cargo.toml above $file" >&2; exit 1; }
+    # nextest's filter is a substring match over the same `module::path::name`
+    # cargo test takes, so one filter serves both.
+    if command -v cargo-nextest >/dev/null 2>&1; then
+      cmd=(cargo nextest run)
+    else
+      cmd=(cargo test)
+    fi
+    if [[ -n $line ]] && filter=$(enclosing "$RS_FN" "$RS_MOD" '::' '#\\[[^]]*test'); then
+      cmd+=("$filter")
+      what=$filter
+    else
+      # No cargo filter selects "this file", so the fallback is the crate. The
+      # file's own `mod tests` name is not unique enough to filter on.
+      what="all tests in $(basename "$root")"
+    fi
+    [[ ${cmd[1]} == test ]] && cmd+=(-- --nocapture)
+    ;;
+
+  *.py)
+    root=$(find_root pyproject.toml setup.cfg setup.py pytest.ini tox.ini) || root=$dir
+    if [[ -x $root/.venv/bin/pytest ]]; then
+      cmd=("$root/.venv/bin/pytest")
+    elif command -v pytest >/dev/null 2>&1; then
+      cmd=(pytest)
+    else
+      cmd=(python3 -m pytest)
+    fi
+    rel=${file#"$root"/}
+    # pytest errors loudly on a nodeid that resolves to a non-test, but the
+    # error is about collection and never mentions the cursor being in a helper.
+    if [[ -n $line ]] && filter=$(enclosing "$PY_FN" "$PY_CLASS" '::') && [[ ${filter##*::} == test_* ]]; then
+      cmd+=("$rel::$filter")
+      what="$rel::$filter"
+    else
+      cmd+=("$rel")
+      what=$rel
+    fi
+    ;;
+
+  *.ts | *.tsx | *.js | *.jsx | *.mjs | *.cjs)
+    root=$(find_root package.json) || { echo "run-test: no package.json above $file" >&2; exit 1; }
+    # Which runner is a fact in package.json, not a guess from the file name.
+    if grep -qE '"(vitest)"[[:space:]]*:' "$root/package.json"; then
+      cmd=(npx vitest run)
+    elif grep -qE '"(jest)"[[:space:]]*:' "$root/package.json"; then
+      cmd=(npx jest)
+    else
+      echo "run-test: neither vitest nor jest in $root/package.json" >&2
+      exit 1
+    fi
+    rel=${file#"$root"/}
+    cmd+=("$rel")
+    what=$rel
+    if [[ -n $line ]] && name=$(enclosing_js); then
+      cmd+=(-t "$name")
+      what="$rel -t $name"
+    fi
+    ;;
+
+  *)
+    echo "run-test: no runner for ${file##*.} files" >&2
+    exit 1
+    ;;
+esac
+
+if ((dry)); then
+  printf 'cd %q && %s\n' "$root" "$(printf '%q ' "${cmd[@]}")"
+  exit 0
+fi
+
+cd "$root"
+
+# --here, or no tmux to split.
+if ((here)) || [[ -z ${TMUX:-} ]]; then
+  exec "${cmd[@]}"
+fi
+
+# A real split, not `display-popup`: a popup is modal for the whole client — it
+# takes every keystroke, so the prefix, pane navigation and the rest of tmux are
+# dead until it closes. A pane in the layout can be scrolled, copied out of and
+# navigated away from while the tests are still running.
+#
+# One pane per window, reused: `respawn-pane -k` replaces the last run's output
+# instead of stacking a new split every time. The marker is a pane-scoped user
+# option, so it dies with the pane and `list-panes` (current window only) never
+# finds another window's runner.
+inner=$(printf '%q ' "${cmd[@]}")
+hold="
+  cd ${root@Q} || exit 1
+  printf '\033[1m%s\033[0m\n\n' ${inner@Q}
+  ${inner}
+  status=\$?
+  printf '\n\033[2m[%s] exit %d — any key to close\033[0m' ${what@Q} \"\$status\"
+  read -rsn1
+"
+
+pane=$(tmux list-panes -t "${TMUX_PANE:-}" -F '#{pane_id} #{@run_test}' |
+  awk '$2 == "1" { print $1; exit }')
+if [[ -n $pane ]]; then
+  # -k because the previous run's `read` is still holding the pane open.
+  exec tmux respawn-pane -k -t "$pane" bash -c "$hold"
+fi
+
+# -d keeps the cursor in helix; the output appears below and you keep typing.
+pane=$(tmux split-window -d -v -l "$SPLIT_HEIGHT" -t "${TMUX_PANE:-}" \
+  -P -F '#{pane_id}' bash -c "$hold")
+tmux set-option -p -t "$pane" @run_test 1

@@ -107,7 +107,6 @@ C-q = ":write-quit-all"
 # S-h = ":buffer-previous"
 # S-l = ":buffer-next"
 esc = ["collapse_selection", "keep_primary_selection"]
-K = "hover"
 A-j = ["extend_to_line_bounds", "delete_selection", "paste_after"]
 A-k = [
     "extend_to_line_bounds",
@@ -137,8 +136,6 @@ A-k = [
     "move_line_up",
     "paste_before",
 ]
-">" = ["indent", "collapse_selection"]
-"<" = ["unindent", "collapse_selection"]
 "=" = ":format"
 
 [keys.normal.g]
@@ -162,10 +159,25 @@ L = ":log-open"
 # from disk, not the buffer.
 z = [":update", ":sh ~/.local/bin/tmux-read --pane '%{file_path_absolute}'"]
 Z = [":update", ":sh ~/.local/bin/tmux-read --window '%{file_path_absolute}'"]
-# This file's path to the clipboard, next to helix's own `space y` (selection).
+# `run-test` resolves the test enclosing the cursor and runs it in a tmux popup
+# over this pane. helix can't do this itself: rust-analyzer offers "run test"
+# through the custom `experimental/runnables` LSP extension, not as a code
+# action, so it never appears in `space a`.
+#
+# `T` rather than `t` because `space t` is the toggle submenu below. One key
+# only: with the cursor outside a test it already falls back to the whole crate
+# (rust) or the whole file (pytest, vitest).
+#
+# The quotes are the *shell's*, not helix's: `:sh` sets raw_after = 1, so
+# everything after the program name is a single Expand token — quoting rules
+# stop applying and `%{...}` still expands. `:update` first because run-test
+# reads the file from disk, not the buffer.
+T = [":update", ":sh run-test '%{file_path_absolute}:%{cursor_line}'"]
+# This file's path to the clipboard. Not `space Y` — that's helix's
+# yank_main_selection_to_clipboard, the single-cursor counterpart to `space y`.
 # `%%s` because helix reads `%` in a command's raw args as an expansion, so a bare
 # `printf %s` dies with "missing a string delimiter after '%s'" before the shell runs.
-Y = ":sh printf %%s '%{file_path_absolute}' | pbcopy"
+"o" = ":sh printf %%s '%{file_path_absolute}' | pbcopy"
 
 # `:toggle` flips editor config live and applies to every buffer — there is no
 # per-buffer wrap. It needs the key to already have a non-null value, which is

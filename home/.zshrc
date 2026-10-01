@@ -149,5 +149,11 @@ urlparse() {
 export CLAUDE_CODE_NO_FLICKER=1 # breaks normal-mode scrollback (use c-o transcript)
 export CLAUDE_CODE_DISABLE_MOUSE=1
 
+lint-skills() {
+  lint-prompts -r --min "${1:-HIGH}" \
+    ~/.claude/skills ~/.claude/plugins \
+    ~/ukon/active/*/agent_config/skills ~/ukon/active/*/.claude/skills
+}
+
 # Per-machine overrides — paths, secrets, work-only aliases.
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
