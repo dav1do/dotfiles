@@ -49,20 +49,6 @@ NODE_PACKAGES=(
   bash-language-server
 )
 
-# Scripts that need the exec bit after a push. cp/rsync keep the *destination's*
-# mode for files that already exist, so re-runs can silently drop it.
-# pr-review.py and tmux-yazi are deliberately not executable.
-EXEC_SCRIPTS=(
-  claude-control
-  cpf
-  git-cleanup-branches
-  pr-review-watch.sh
-  tmux-pane-picker
-  tmux-read
-  tmux-send-pane
-  toolchain-check
-)
-
 # ── usage ──
 # Unquoted heredoc so $NODE_MAJOR stays honest — no backticks in here.
 usage() {
@@ -81,9 +67,9 @@ Usage: ./bootstrap.sh [-n|--dry-run] [phase ...]
 Phases — every one is idempotent and safe to re-run:
 
   brew      Homebrew itself, then formulae, casks and gh extensions
-  files     rsync home/ -> ~/, plus chmod +x on the scripts that need it.
+  files     rsync home/ -> ~/ (modes come from git, so the exec bits ride along).
             Config only, installs nothing. Leaves ~/.claude/settings.json
-            alone — that one holds live state, so merge it by hand.
+            alone — live owns it, and the tracked copy lacks spinnerVerbs.
   shell     oh-my-zsh, powerlevel10k, zsh plugins, tpm
   rust      rustup, nightly toolchain, ~/bin/rust-analyzer
   node      nvm, node $NODE_MAJOR as default, global npm tooling
@@ -212,28 +198,17 @@ phase_files() {
   say "Pushing repo -> ~/"
   # --exclude .claude/: handled separately below, because settings.json must not
   # ride along.
-  run rsync -a --exclude '.claude/' --exclude '.DS_Store' "$DOTFILES/home/" "$HOME/"
+  run rsync -a --exclude '.claude/' --exclude '.zshrc' --exclude '.DS_Store' "$DOTFILES/home/" "$HOME/"
   info "everything except .claude/"
 
-  # Live owns settings.json — it carries per-project grants the tracked copy
-  # omits, so a plain copy would clobber it. Merge by hand. Everything else
-  # under .claude/ round-trips; see CLAUDE_PATHS in sync.sh.
+  # Live owns settings.json; sync.sh writes the tracked copy from it minus
+  # spinnerVerbs, so pushing it back would lose those. Everything else under
+  # .claude/ round-trips; see CLAUDE_PATHS in sync.sh.
   if [[ -d "$DOTFILES/home/.claude" ]]; then
     run rsync -a --exclude 'settings.json' --exclude '.DS_Store' \
       "$DOTFILES/home/.claude/" "$HOME/.claude/"
-    info ".claude/ (except settings.json — merge that one by hand)"
+    info ".claude/ (except settings.json, which live owns)"
   fi
-
-  local missing=()
-  for s in "${EXEC_SCRIPTS[@]}"; do
-    if [[ -f "$HOME/.local/bin/$s" ]]; then
-      run chmod +x "$HOME/.local/bin/$s"
-    else
-      missing+=("$s")
-    fi
-  done
-  info "chmod +x on ${#EXEC_SCRIPTS[@]} scripts in ~/.local/bin"
-  ((${#missing[@]})) && warn "not found: ${missing[*]}"
 
   # oh-my-zsh's installer wants this to exist before .zshrc sources plugins.
   run mkdir -p "$HOME/.config/tmux/plugins" "$HOME/bin"
@@ -246,7 +221,7 @@ phase_shell() {
   if [[ -d "$HOME/.oh-my-zsh" ]]; then
     info "oh-my-zsh (present)"
   else
-    # KEEP_ZSHRC: the .zshrc from this repo is the real one, don't replace it.
+    # KEEP_ZSHRC: .zshrc is pulled by sync.sh but never pushed; don't let the installer replace it.
     run_sh 'RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
   fi
 
@@ -394,9 +369,9 @@ phase_check() {
       - GPG: install GPG Suite from https://gpgtools.org/, import your key,
         then check `git config --get user.signingkey` resolves.
       - claude code: https://docs.claude.com/en/docs/claude-code
-      - ~/.claude/settings.json is the one file this script won't push. Live
-        holds per-project permission grants the tracked copy omits, so merge
-        home/.claude/settings.json into it by hand.
+      - ~/.claude/settings.json is the one file this script won't push. On a
+        fresh machine, copy home/.claude/settings.json in (it lacks only
+        spinnerVerbs); elsewhere live is already the source.
       - corepack per node version you develop on: `corepack enable`
         (not bundled from node 25 on — add it to default-packages if needed).
 EOF

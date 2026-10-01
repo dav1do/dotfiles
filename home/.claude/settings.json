@@ -1,13 +1,22 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
-      "Bash(cargo build:*)",
-      "Bash(cargo check:*)",
-      "Bash(cargo clippy:*)",
-      "Bash(cargo fmt:*)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(sed -n *)",
       "Bash(echo *)",
       "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(jq *)",
+      "Bash(ls *)",
+      "Bash(wc *)",
+      "Bash(which *)",
+      "Bash(pwd)",
+      "Bash(gh api repos/*/pulls/*/reviews *)",
       "Bash(gh issue list *)",
       "Bash(gh issue view *)",
       "Bash(gh pr checkout *)",
@@ -20,124 +29,27 @@
       "Bash(gh run watch *)",
       "Bash(git branch *)",
       "Bash(git diff *)",
-      "Bash(git diff:*)",
       "Bash(git log *)",
-      "Bash(git log:*)",
       "Bash(git rev-parse *)",
       "Bash(git show *)",
       "Bash(git stash *)",
       "Bash(git status *)",
-      "Bash(git status:*)",
-      "Bash(grep *)",
-      "Bash(jq *)",
-      "Bash(ls *)",
-      "Bash(pwd)",
-      "Bash(rg *)",
-      "Bash(sqitch add:*)",
-      "Bash(sqitch status:*)",
-      "Bash(sqitch verify:*)",
-      "Bash(wc *)",
-      "Bash(which *)",
+      "Bash(git grep *)",
+      "Bash(git worktree list *)",
+      "Bash(git fetch *)",
+      "Bash(git merge-base *)",
+      "Bash(pg_isready *)",
       "Read",
       "WebSearch",
-      "Bash(cargo build *)",
-      "Bash(cargo check *)",
-      "Bash(cargo clippy *)",
-      "Bash(cargo fmt *)",
-      "Bash(cargo machete *)",
-      "Bash(cargo sqlx *)",
-      "Bash(cargo test *)",
-      "Bash(make *)",
-      "Bash(sqitch status *)",
-      "Bash(sqitch verify *)",
-      "Bash(docker compose * ps *)",
-      "Bash(docker compose * logs *)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:api.github.com)",
-      "WebFetch(domain:developers.glean.com)",
-      "WebFetch(domain:api.anthropic.com)",
-      "mcp__postgres__query",
-      "Bash(bat *)",
-      "Bash(cargo llvm-cov *)",
-      "Bash(cargo tree *)",
-      "Bash(delta *)",
-      "Bash(fd *)",
-      "Bash(glow *)",
-      "Bash(hyperfine *)",
-      "Bash(pandoc *)",
-      "Bash(ruff *)",
-      "Bash(scc *)",
-      "Bash(shfmt *)",
-      "Bash(sqldiff *)",
-      "Bash(stylua *)",
-      "Bash(taplo *)",
-      "Bash(tldr *)",
-      "Bash(tmux capture-pane *)",
-      "Bash(tmux display-message *)",
-      "Bash(tmux list-panes *)",
-      "Bash(tmux list-sessions *)",
-      "Bash(tmux list-windows *)",
-      "Bash(toolchain-check*)",
-      "Bash(typst compile *)"
+      "WebFetch(domain:api.anthropic.com)"
     ],
-    "deny": [
-      "Bash(rm -rf /)",
-      "Bash(rm -rf /*)",
-      "Bash(rm -rf ~*)",
-      "Bash(sudo *)",
-      "Bash(su *)",
-      "Bash(curl *| bash*)",
-      "Bash(curl *| sh*)",
-      "Bash(curl *| zsh*)",
-      "Bash(curl *| source*)",
-      "Bash(wget *| bash*)",
-      "Bash(wget *| sh*)",
-      "Bash(wget *| zsh*)",
-      "Bash(wget *| source*)",
-      "Bash(ssh *)",
-      "Bash(scp *)",
-      "Bash(pulumi up)",
-      "Bash(pulumi up *)",
-      "Bash(pulumi destroy)",
-      "Bash(pulumi destroy *)",
-      "Bash(pulumi refresh)",
-      "Bash(pulumi refresh *)",
-      "Bash(docker push *)",
-      "Bash(npm publish *)",
-      "Bash(yarn publish *)",
-      "Bash(pnpm publish *)",
-      "Bash(osascript *)",
-      "Bash(defaults write *)",
-      "Read(~/.ssh/**)",
-      "Read(~/.gnupg/**)",
-      "Read(~/.aws/**)",
-      "Read(~/.config/gcloud/application_default_credentials.json)",
-      "Read(~/.docker/config.json)",
-      "Read(~/.kube/config)",
-      "Read(~/.netrc)",
-      "Read(~/.npmrc)",
-      "Read(**/*.pem)",
-      "Read(**/*.key)",
-      "Read(**/*.p12)",
-      "Read(**/*.pfx)",
-      "Read(**/gha-creds-*.json)",
-      "Read(**/*-gcs-key.json)",
-      "Read(**/.env.prod*)",
-      "Read(**/.env.staging*)",
-      "Edit(**/.env.prod*)",
-      "Edit(**/.env.staging*)",
-      "Write(**/.env.prod*)",
-      "Write(**/.env.staging*)"
-    ],
-    "ask": [
-      "Bash(git push *--force*)",
-      "Bash(git push *-f *)",
-      "Bash(git push -f *)",
-      "Bash(git push -f)",
-      "Bash(brew install *)"
-    ],
-    "defaultMode": "auto",
-    "disableBypassPermissionsMode": "disable"
+    "defaultMode": "auto"
+  },
+  "model": "opus[1m]",
+  "skillOverrides": {
+    "danny-badger": "off"
   },
   "hooks": {
     "SessionStart": [
@@ -146,25 +58,83 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$HOME/.claude/hooks/worktree-setup.sh\""
+            "command": "bash /Users/david/.claude/hooks/worktree-setup.sh"
           }
         ]
       }
     ]
   },
+  "worktree": {
+    "baseRef": "fresh"
+  },
+  "workflowKeywordTriggerEnabled": false,
   "statusLine": {
     "type": "command",
-    "command": "bash \"$HOME/.claude/statusline.sh\""
+    "command": "bash /Users/david/.claude/statusline.sh"
   },
   "enabledPlugins": {
-    "code-review@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
-    "pr-review-toolkit@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": false,
+    "pr-review-toolkit@claude-plugins-official": false,
     "session-report@claude-plugins-official": true,
-    "security-hooks@ukon-plugins": true
+    "security-hooks@ukon-plugins": true,
+    "design-html@ukon-plugins": true,
+    "review-pr@ukon-plugins": true,
+    "ukon-test-db@ukon-plugins": true,
+    "posthog@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {},
+  "outputStyle": "Blunt",
+  "sandbox": {
+    "network": {
+      "allowLocalBinding": true
+    },
+    "filesystem": {
+      "denyRead": [
+        "~/.git-credentials",
+        "~/.cargo/credentials.toml",
+        "~/.cargo/credentials",
+        "~/.pypirc",
+        "~/.zsh_history",
+        "~/ukon/**/.env.prod*",
+        "~/ukon/**/.env.staging*",
+        "~/ukon/**/*.pem",
+        "~/ukon/**/*.key",
+        "~/ukon/**/*.p12",
+        "~/ukon/**/*.pfx",
+        "~/ukon/**/gha-creds-*.json",
+        "~/ukon/**/*-gcs-key.json"
+      ],
+      "allowWrite": [
+        "/Users/david/ukon/active/ukon-core/.claude/worktrees",
+        "/Users/david/ukon/active/ukon-core/.claude/skills",
+        "/Users/david/.cargo"
+      ],
+      "denyWrite": [
+        "/Users/david/.cargo/bin",
+        "/Users/david/.cargo/config.toml",
+        "/Users/david/.cargo/credentials.toml",
+        "/Users/david/.cargo/credentials"
+      ]
+    },
+    "excludedCommands": [
+      "bash ~/ukon/active/mgmt/.claude/skills/morning-prep/gather.sh*",
+      "bash /Users/david/ukon/active/mgmt/.claude/skills/morning-prep/gather.sh*",
+      "./clickup_stats.py *"
+    ]
+  },
+  "feedbackDrafts": "off",
+  "modelSettings": {
+    "claude-opus-5": {
+      "effortLevel": "medium"
+    },
+    "claude-fable-5-1": {
+      "effortLevel": "medium"
+    },
+    "claude-sonnet-5": {
+      "effortLevel": "high"
+    }
+  },
   "promptSuggestionEnabled": false,
   "tui": "fullscreen",
   "voice": {
@@ -172,8 +142,11 @@
     "mode": "hold"
   },
   "autoDreamEnabled": true,
+  "skipWorkflowUsageWarning": true,
   "editorMode": "vim",
+  "verbose": false,
   "autoScrollEnabled": true,
+  "inputNeededNotifEnabled": false,
   "agentPushNotifEnabled": false,
   "skipAutoPermissionPrompt": true,
   "voiceEnabled": true,

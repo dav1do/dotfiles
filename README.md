@@ -302,7 +302,7 @@ Rust toolchain (builds helix itself, and provides `rust-analyzer`):
 
 ### setup
 
-`.claude/` is excluded from `sync.sh` and maintained by hand, so it drifts. The tracked `settings.json` is also a deliberately sanitized subset — `spinnerVerbs` is kept only in the live `~/.claude/settings.json`, since this repo is public. Treat live as the source of truth there, not the repo.
+From `~/.claude/`, only the entries in `CLAUDE_PATHS` (`sync.sh`) round-trip: `CLAUDE.md`, `statusline.sh`, `hooks/`. `settings.json` is one-way: `sync.sh` writes the tracked copy from live minus `spinnerVerbs` (this repo is public), and `bootstrap.sh` never pushes it back. Live is the source of truth.
 
 `sync.sh` and `bootstrap.sh` run in **opposite directions**:
 
@@ -317,20 +317,16 @@ git clone https://github.com/<you>/dotfiles ~/mystuff/dotfiles && cd ~/mystuff/d
 ./bootstrap.sh update      # brew upgrade + gh/yazi/tpm/rustup + toolchain-check -u
 ```
 
-Every phase is idempotent. It leaves GPG, Claude Code and `~/.claude/` to be done by hand and says so at the end. If you'd rather do the file half manually, that's `rsync -a --exclude '.claude/' home/ ~/` plus the `chmod +x` below.
+Every phase is idempotent. It leaves GPG, Claude Code and `~/.claude/settings.json` to be done by hand and says so at the end. If you'd rather do the file half manually, that's the `rsync` below.
 
 So editing a file in this repo and then running `./sync.sh` silently discards the edit — the live copy wins. Edit `~/` and sync, or push the repo copy out first.
 
-**The push direction must exclude `.claude/`**, for the same reason the paragraph above says live is the source of truth there. A plain `cp -r home/. ~/` would replace the live 37KB `~/.claude/settings.json` with the tracked 4KB sanitized subset — 159 lines gone, including `spinnerVerbs` — plus 50 lines of `statusline.sh` and 19 of `CLAUDE.md`. `sync.sh` already excludes `.claude` in the pull direction; the push has to match.
+**The push direction must exclude `~/.claude/settings.json`**, for the same reason the paragraph above says live is the source of truth there. A plain `cp -r home/. ~/` would replace the live file with the tracked copy and lose `spinnerVerbs`.
 
 For a one-off change, copy just the files you touched rather than the whole tree.
 
 ```sh
-rsync -a --exclude '.claude/' home/ ~/   # everything except .claude, which live owns
-
-# cp keeps the *destination's* mode when a file already exists, so re-runs can
-# silently drop the exec bit. Put it back on the scripts that need it.
-chmod +x ~/.local/bin/{cpf,claude-control,git-cleanup-branches,pr-review-watch.sh,tmux-pane-picker,tmux-send-pane,toolchain-check}
+rsync -a --exclude 'settings.json' --exclude '.zshrc' home/ ~/   # modes come from git, exec bits included
 
 # Symlink rustup's nightly rust-analyzer into PATH (used by helix via $HOME/bin).
 mkdir -p ~/bin
