@@ -2,8 +2,9 @@
 # Watches the PRs waiting on your review across ukon-core and ui, and spawns a
 # headless Claude review for each one that has settled.
 #
-# The review runs as its own `claude -p` process, not a subagent: subagents do not
-# get the Workflow tool, and /review-pr's adversarial fan-out needs it.
+# The review runs as its own `claude -p` process, so it cannot ask for a
+# permission mid-run: whatever /review-pr runs that ~/.claude/settings.json
+# doesn't already allow is in REVIEW_TOOLS below.
 #
 # Reviews post as a PENDING draft — visible only to you. Nothing reaches the
 # author until you submit it in the GitHub UI.
@@ -23,26 +24,31 @@ PRW_USAGE_JSON="${PRW_USAGE_JSON:-/tmp/claude-statusline-debug.json}"
 PRW_USAGE_STALE_MIN="${PRW_USAGE_STALE_MIN:-120}"
 PRW_STATE="${PRW_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/pr-review-watch}"
 PRW_INTERVAL="${PRW_INTERVAL:-600}" # --watch loop period, seconds
-# The .jsonl stream is what review_landed and salvage_payload read. Megabytes each;
+# The .jsonl stream is what review_landed reads. Megabytes each;
 # the session transcript under ~/.claude/projects outlives it, and the .txt
 # verdicts stay forever.
 PRW_LOG_KEEP_DAYS="${PRW_LOG_KEEP_DAYS:-14}"
-# Each review is a Workflow fan-out. The usage gate only runs between ticks, so
+# Each review runs three agents and a /code-review. The usage gate only runs between ticks, so
 # without a cap one quiet batch of PRs can spend the whole 5-hour window at once.
 PRW_MAX_JOBS="${PRW_MAX_JOBS:-2}"
 # release-please and dependabot PRs are the bulk of what lands in the review queue
-# and there is nothing in them worth a fan-out.
+# and there is nothing in them worth a review.
 PRW_SKIP_TITLE_RE="${PRW_SKIP_TITLE_RE:-^chore\(main\): release|^chore\(deps\): bump}"
-# /review-pr hands its fan-out to a background Workflow and ends the turn. The
-# default ceiling kills that workflow mid-flight and the run still exits rc0, so
-# the review comes back empty; 0 waits for the workflow instead.
+# /review-pr's agents can run in the background. The default ceiling kills them
+# mid-flight and the run still exits rc0, so the review comes back empty; 0 waits
+# for them instead.
 PRW_BG_WAIT_MS="${PRW_BG_WAIT_MS:-0}"
-# A run that finishes without posting leaves its payload in scratch space that is
-# then cleaned up. The stream still holds the Write that made it, so it is
-# salvaged into the marker dir. Posting it is opt-in: the anchors were computed
-# against whatever head the fan-out saw, and an author who pushed since would get
-# comments on lines that have moved.
+# A run that finishes without posting leaves the verifier's JSON in
+# <repo>/.review-tmp/. post_review.py refuses it once the head has moved, so a
+# repost can't put comments on lines that have since changed.
 PRW_AUTOPOST="${PRW_AUTOPOST:-0}"
+# Agent runs triage, review and verify; Skill is the reviewer's /code-review; Write
+# is the verifier JSON. The git, gh, grep and echo calls are in settings.json.
+REVIEW_TOOLS=(
+  Agent Skill Write
+  "Bash(git worktree add *)" "Bash(git worktree remove *)"
+  "Bash(bash *review_digest.sh *)" "Bash(python3 *post_review.py *)"
+)
 
 ONCE=1
 DRY=0
@@ -150,10 +156,10 @@ usage_gate() {
   return 0
 }
 
-# Only what this runner's own allowlist requires goes here. How to review and
-# post is the skill's job, and a rule restated here drifts from it.
+# /review-pr posts through its own post_review.py and needs no rules from here.
+# How to review and post is the skill's job, and a rule restated here drifts from it.
 review_prompt() {
-  local num=$1 repo=$2 slug=$3 rules
+  local num=$1 repo=$2 rules
   read -r -d '' rules <<RULES
 Operational constraint for this run:
 
@@ -163,48 +169,15 @@ Operational constraint for this run:
   pattern, so the post is refused and the review is lost.
 RULES
   case "$PRW_MODE" in
-    review-pr) printf '/review-pr:review-pr %s\n\n%s' "$num" "$rules" ;;
+    review-pr) printf '/review-pr:review-pr %s' "$num" ;;
     code-review) printf '/code-review low %s\n\n%s' "$num" "$rules" ;;
   esac
 }
 
-# Pulls the payload the sub-session wrote back out of its own stream. Prints one
-# salvaged path per line; prints nothing when the run never got as far as writing
-# one, which is itself the useful signal.
-salvage_payload() {
-  python3 - "$1" "$2" <<'SALVAGE'
-import json, os, sys
-
-stream, dest = sys.argv[1], sys.argv[2]
-os.makedirs(dest, exist_ok=True)
-saved = []
-with open(stream, errors="replace") as fh:
-    for line in fh:
-        if '"tool_use"' not in line or "pr-review" not in line:
-            continue
-        try:
-            content = json.loads(line).get("message", {}).get("content")
-        except ValueError:
-            continue
-        for block in content or []:
-            if not isinstance(block, dict):
-                continue
-            if block.get("type") != "tool_use" or block.get("name") != "Write":
-                continue
-            args = block.get("input") or {}
-            name = os.path.basename(args.get("file_path") or "")
-            if not name.startswith("pr-review"):
-                continue
-            out = os.path.join(dest, name)
-            with open(out, "w") as fh2:
-                fh2.write(args.get("content") or "")
-            # A session that rewrote its payload wrote the same path twice; the
-            # last write is the one it meant, and it should be listed once.
-            if out in saved:
-                saved.remove(out)
-            saved.append(out)
-print("\n".join(saved))
-SALVAGE
+# The newest installed copy of the skill's poster, or nothing.
+post_review_py() {
+  ls -d "$HOME"/.claude/plugins/cache/*/review-pr/*/skills/review-pr/scripts/post_review.py 2>/dev/null \
+    | sort -V | tail -1
 }
 
 running_jobs() {
@@ -222,8 +195,8 @@ my_review_count() {
 }
 
 # Did this run actually leave a review? rc0 does not answer that: a run that ends
-# its turn asking you a question, or that returns while its fan-out Workflow is
-# still in flight, exits 0 having posted nothing.
+# its turn asking you a question, or that returns while its agents are still in
+# flight, exits 0 having posted nothing.
 review_landed() {
   local repo=$1 num=$2 stream=$3 before=$4 after
   after=$(my_review_count "$repo" "$num")
@@ -231,14 +204,16 @@ review_landed() {
     [ "$after" -gt "$before" ]
     return
   fi
-  # Fallback for when the API could not be reached at one end or the other: the
-  # skill posts with `gh api repos/.../pulls/N/reviews --input <file>`. Reads of
-  # the same endpoint are common and must not count, hence the --input. Only a
-  # Bash call counts — a run that could not post ends by telling you that command.
+  # Fallback for when the API could not be reached at one end or the other:
+  # /review-pr posts with `post_review.py N <json>`, /code-review with
+  # `gh api repos/.../pulls/N/reviews --input <file>`. Reads of that endpoint are
+  # common and must not count, hence the --input. Only a Bash call counts — a run
+  # that could not post ends by telling you the command.
   grep '^{' "$stream" 2>/dev/null | jq -e --arg n "$num" -s '
     [.[] | select(.type == "assistant") | .message.content[]?
       | select(.type == "tool_use" and .name == "Bash") | .input.command // ""
-      | select(test("pulls/" + $n + "/reviews[^|;&]*--input"))] | length > 0' >/dev/null
+      | select(test("pulls/" + $n + "/reviews[^|;&]*--input")
+          or test("post_review\\.py\\s+" + $n + "\\s"))] | length > 0' >/dev/null
 }
 
 # Runs one review to completion. Returns 0 when the PR should stay claimed —
@@ -258,12 +233,10 @@ run_review() {
   before=$(my_review_count "$repo" "$num")
   # stderr goes to its own file: interleaved into the stream it makes the whole
   # thing invalid JSON and jq gives up before reaching the result event.
-  # Workflow is allowed outright: -p cannot answer its approval prompt, and
-  # without this the skill's second Workflow call (tighten) is refused.
   CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="$PRW_BG_WAIT_MS" \
-    claude -p "$(review_prompt "$num" "$repo" "$slug")" \
+    claude -p "$(review_prompt "$num" "$repo")" \
     --permission-mode "$PRW_PERMISSION" \
-    --allowedTools Workflow \
+    --allowedTools "${REVIEW_TOOLS[@]}" \
     --output-format stream-json --verbose \
     ${PRW_MODEL:+--model "$PRW_MODEL"} >"$stream" 2>"$errlog"
   rc=$?
@@ -289,41 +262,30 @@ run_review() {
   else
     # Deliberately keeps the marker: the run completed, so a retry would spend
     # the same money to end the same way. What is worth recovering is the review
-    # itself, which is finished and sitting in a scratch dir about to be reaped.
-    local saved payload post_sh
-    saved=$(salvage_payload "$stream" "$PRW_STATE/$slug" 2>/dev/null)
-    payload=$(printf '%s\n' "$saved" | grep '\.json$' | head -1)
-    # Some runs stage a builder rather than the payload; running it with TMPDIR
-    # pointed at the marker dir makes it write the json where the builder expects
-    # $TMPDIR, which is where we want it anyway.
-    if [ -z "$payload" ]; then
-      local builder
-      builder=$(printf '%s\n' "$saved" | grep '\.py$' | head -1)
-      if [ -n "$builder" ] && TMPDIR="$PRW_STATE/$slug/" python3 "$builder" >/dev/null 2>&1; then
-        payload=$(ls -t "$PRW_STATE/$slug"/*.json 2>/dev/null | head -1)
-      fi
-    fi
-
-    if [ -z "$payload" ]; then
-      notify "$repo#$num" "NO REVIEW POSTED and nothing to salvage — see $stream"
+    # itself, which the verifier left in the repo's .review-tmp/.
+    local review poster post_sh
+    review="$dir/.review-tmp/pr-$num.review.json"
+    poster=$(post_review_py)
+    if [ ! -s "$review" ] || [ -z "$poster" ]; then
+      notify "$repo#$num" "NO REVIEW POSTED and nothing to repost — see $stream"
     else
       post_sh="$PRW_STATE/$slug/post.sh"
+      mkdir -p "$PRW_STATE/$slug"
       {
         echo "#!/usr/bin/env bash"
-        echo "# Posts the salvaged review for $repo#$num as a PENDING draft."
-        echo "# Anchors were computed against the head the fan-out saw. If the author"
-        echo "# has pushed since, check the lines before running this."
+        echo "# Posts the finished review for $repo#$num as a PENDING draft."
         echo "set -euo pipefail"
-        printf 'gh api repos/%s/pulls/%s/reviews --input %q\n' "$repo" "$num" "$payload"
+        printf 'cd %q\n' "$dir"
+        printf 'python3 %q %s %q\n' "$poster" "$num" "$review"
       } >"$post_sh"
       chmod +x "$post_sh"
       if [ "$PRW_AUTOPOST" = 1 ] && bash "$post_sh" >/dev/null 2>&1; then
         LANDED=POSTED
-        log "  #$num salvaged and posted from $payload"
-        notify "Reviewed $repo#$num" "salvaged draft posted — $url"
+        log "  #$num reposted from $review"
+        notify "Reviewed $repo#$num" "draft posted on retry — $url"
       else
-        log "  #$num salvaged to $payload — post with $post_sh"
-        notify "$repo#$num" "review salvaged, not posted — run $post_sh"
+        log "  #$num not posted — post with $post_sh"
+        notify "$repo#$num" "review finished, not posted — run $post_sh"
       fi
     fi
   fi
@@ -344,7 +306,7 @@ spawn_review() {
 
   if [ "$DRY" = 1 ]; then
     rmdir "$marker"
-    log "  DRY-RUN would run in $dir: claude -p \"$(review_prompt "$num" "$repo" "$slug")\" --permission-mode $PRW_PERMISSION --allowedTools Workflow"
+    log "  DRY-RUN would run in $dir: claude -p \"$(review_prompt "$num" "$repo")\" --permission-mode $PRW_PERMISSION --allowedTools ${REVIEW_TOOLS[*]}"
     return
   fi
 
@@ -459,7 +421,7 @@ if [ -n "$ONLY_PR" ]; then
   }
   slug="$(echo "$repo" | tr / _)-$num"
   if [ "$DRY" = 1 ]; then
-    echo "would run in $dir: claude -p \"$(review_prompt "$num" "$repo" "$slug")\" --permission-mode $PRW_PERMISSION --allowedTools Workflow"
+    echo "would run in $dir: claude -p \"$(review_prompt "$num" "$repo")\" --permission-mode $PRW_PERMISSION --allowedTools ${REVIEW_TOOLS[*]}"
     exit 0
   fi
   log "reviewing $repo#$num in $dir -> $PRW_STATE/$slug-*.jsonl"
